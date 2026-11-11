@@ -14,7 +14,7 @@
     // ==========================================================================
     // Config / constants
     // ==========================================================================
-    var APP_VERSION = '0.8.2';
+    var APP_VERSION = '0.9.0';
     var PLAYLISTS_KEY = 'iptv_playlists';
     var ACTIVE_PLAYLISTS_KEY = 'iptv_active_playlist_id';
     var FAVORITES_KEY = 'iptv_favorites';
@@ -23,6 +23,17 @@
     var REOPEN_LAST_KEY = 'iptv_reopen_last';
     var REOPEN_PENDING_KEY = 'iptv_reopen_pending';
     var LOG_KEY = 'iptv_log';
+
+    // Self-update: where the current app is published (GitHub Pages, served
+    // from the repo's main branch) and where a downloaded copy is kept. The
+    // keys are shared with js/boot.js, which starts a downloaded copy.
+    var UPDATE_URL = 'https://miglworld.github.io/MyTvApp/';
+    var UPDATE_KEY = 'mytvapp_update';
+    var UPDATE_BAD_KEY = 'mytvapp_update_bad';
+    var UPDATE_URL_KEY = 'mytvapp_update_url';   // testing only: another address to update from
+    var AUTO_UPDATE_KEY = 'iptv_auto_update';
+    var UPDATE_CHECK_DELAY_MS = 3000;
+    var UPDATE_RESTART_WINDOW_MS = 25000;
     var LOG_LINES = 14;
     var OVERLAY_HIDE_MS = 5000;
     var TOAST_MS = 3000;
@@ -106,6 +117,12 @@
     // problem can never look like an app that does not start.
     var reopenLast = false;
     try { reopenLast = localStorage.getItem(REOPEN_LAST_KEY) === '1'; } catch (e) { reopenLast = false; }
+
+    // Automatic updates (Settings switch, on by default).
+    var autoUpdate = true;
+    try { autoUpdate = localStorage.getItem(AUTO_UPDATE_KEY) !== '0'; } catch (e) { autoUpdate = true; }
+    var updateReady = '';   // version downloaded and waiting for the next start
+    var bootTime = Date.now();
 
     // Diagnostics: a TV has no console, so the last few events are kept in
     // storage and listed at the bottom of Settings. They survive a restart,
@@ -979,6 +996,27 @@
         });
         list.appendChild(reopenRow);
 
+        if (updatesPossible()) {
+            var updateRow = document.createElement('button');
+            updateRow.className = 'playlist-row add-row option-row second';
+            updateRow.tabIndex = -1;
+            updateRow.textContent = 'Automatic updates from GitHub: ' + (autoUpdate ? 'On' : 'Off');
+            updateRow.addEventListener('click', function () {
+                autoUpdate = !autoUpdate;
+                try {
+                    localStorage.setItem(AUTO_UPDATE_KEY, autoUpdate ? '1' : '0');
+                    // Off also drops a downloaded update: the next start uses the package's own version.
+                    if (!autoUpdate) { localStorage.removeItem(UPDATE_KEY); updateReady = ''; }
+                } catch (e) { /* non-fatal */ }
+                renderPlaylistList();
+                renderAppVersion();
+                Focus.setZone('playlistList', Focus.row, 0);
+                if (autoUpdate) checkForUpdate();
+                else showToast('Automatic updates off. The built-in version ' + window.MYTVAPP_BUNDLED + ' runs from the next start');
+            });
+            list.appendChild(updateRow);
+        }
+
         // Diagnostics log (a row so that Down scrolls it into view). OK refreshes it.
         var logRow = document.createElement('button');
         logRow.className = 'playlist-row add-row log-row';
@@ -1000,7 +1038,98 @@
         }
         if (!source) source = location.protocol.indexOf('http') === 0 ? 'web / TizenBrew module' : 'installed package';
         var player = hasAvplay ? 'Samsung player available' : 'Samsung player not available';
-        document.getElementById('appVersion').textContent = 'MyTvApp ' + APP_VERSION + ' \u00b7 running from ' + source + ' \u00b7 ' + player;
+        var update = updateReady ? ' \u00b7 update ' + updateReady + ' ready: restart the app' : '';
+        document.getElementById('appVersion').textContent = 'MyTvApp ' + APP_VERSION + ' \u00b7 running from ' + source + ' \u00b7 ' + player + update;
+    }
+
+    // ==========================================================================
+    // Self-update. The installed package always starts from its own files
+    // (js/boot.js). This part runs afterwards, in the background: if GitHub
+    // has a newer version, its three files are downloaded as text and stored.
+    // js/boot.js starts the stored copy on the next start and throws it away
+    // if it does not start. Nothing here can stop the running app.
+    // (lib/hls.min.js is not updated this way; it changes only with a new package.)
+    // ==========================================================================
+    function versionNewer(a, b) {
+        var x = String(a).split('.'), y = String(b).split('.');
+        for (var i = 0; i < 3; i++) {
+            var p = parseInt(x[i], 10) || 0, q = parseInt(y[i], 10) || 0;
+            if (p !== q) return p > q;
+        }
+        return false;
+    }
+
+    // Only the installed app updates itself, and only a package that has
+    // js/boot.js to start the download. localhost is allowed for testing.
+    function updatesPossible() {
+        return !!window.MYTVAPP_BUNDLED && (location.protocol.indexOf('http') !== 0 || location.hostname === 'localhost');
+    }
+
+    function fetchUpdateText(url) {
+        return fetchWithTimeout(url).then(function (res) {
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return res.text();
+        });
+    }
+
+    function checkForUpdate() {
+        if (!autoUpdate || !updatesPossible()) return;
+        var base = UPDATE_URL;
+        try { base = localStorage.getItem(UPDATE_URL_KEY) || UPDATE_URL; } catch (e) { base = UPDATE_URL; }
+        var version = '';
+
+        fetchUpdateText(base + 'package.json?t=' + Date.now()).then(function (text) {
+            version = String(JSON.parse(text).version || '');
+            if (!versionNewer(version, APP_VERSION)) {
+                logEvent('update check: ' + APP_VERSION + ' is current');
+                return null;
+            }
+            var bad = null;
+            try { bad = localStorage.getItem(UPDATE_BAD_KEY); } catch (e) { bad = null; }
+            if (bad === version) {
+                logEvent('update ' + version + ' skipped: it failed to start before');
+                return null;
+            }
+            var v = '?v=' + encodeURIComponent(version);
+            return Promise.all([
+                fetchUpdateText(base + 'index.html' + v),
+                fetchUpdateText(base + 'css/style.css' + v),
+                fetchUpdateText(base + 'js/main.js' + v)
+            ]);
+        }).then(function (files) {
+            if (!files) return;
+            var js = files[2];
+            // The three files must belong together and be the real thing.
+            if (js.indexOf("APP_VERSION = '" + version + "'") === -1 || js.indexOf('MYTVAPP_STARTED') === -1) {
+                throw new Error('script is not version ' + version);
+            }
+            var doc = new DOMParser().parseFromString(files[0], 'text/html');
+            var app = doc && doc.getElementById('app');
+            if (!app) throw new Error('page has no app markup');
+            localStorage.setItem(UPDATE_KEY, JSON.stringify({ version: version, js: js, css: files[1], html: app.innerHTML }));
+            // This app is clearly running: a start-up check still open from this
+            // start (js/boot.js) must not be held against the new download.
+            localStorage.removeItem('mytvapp_update_pending');
+            updateReady = version;
+            logEvent('update ' + version + ' downloaded');
+            applyUpdateOrAnnounce(version);
+        }).catch(function (err) {
+            logEvent('update check failed: ' + ((err && err.message) || err));
+        });
+    }
+
+    // Right after the start, with nobody in the middle of something, restart
+    // into the update at once. Otherwise it waits for the next start.
+    function applyUpdateOrAnnounce(version) {
+        var idle = activeScreenId() !== 'screen-player' && activeScreenId() !== 'screen-add' &&
+            document.getElementById('confirmModal').hidden && !state.nowPlaying;
+        if (idle && Date.now() - bootTime < UPDATE_RESTART_WINDOW_MS) {
+            showToast('Updating to ' + version + '\u2026');
+            setTimeout(function () { location.reload(); }, 1500);
+        } else {
+            showToast('Update ' + version + ' is ready: restart the app to use it');
+            if (activeScreenId() === 'screen-settings') renderAppVersion();
+        }
     }
 
     Focus.zones.playlistList = {
@@ -1851,4 +1980,5 @@
     // First run (or every playlist deleted): open the Playlists screen so the
     // one-press iptv-org presets are right there.
     refreshActiveChannels({ screen: state.playlists.length ? 'screen-grid' : 'screen-settings', after: reopenLastChannel });
+    setTimeout(checkForUpdate, UPDATE_CHECK_DELAY_MS);
 });

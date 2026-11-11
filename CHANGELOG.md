@@ -2,6 +2,12 @@
 
 MyTvApp's own history starts at v0.1. Newest first. Each entry also names the version number the app showed at the time.
 
+## v0.9.0 (2026-11-11)
+- Self-update: the app starts from its own files, checks GitHub in the background, downloads a newer version into storage and runs it from the next start (or restarts into it right away when the app has just opened).
+- An update that does not start is discarded and not tried again.
+- **Automatic updates** switch in Settings; update events appear in the diagnostics list.
+- Needs this package installed once (`js/boot.js` is new).
+
 ## v0.8.2 (2026-11-11)
 - The package starts the app directly from its own files again, as 1.4.2 did, instead of going through the launcher. Packages that started through the launcher showed a black screen on the TV. Updating means installing the newer package.
 

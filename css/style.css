@@ -664,7 +664,8 @@ html.avplay-active #screen-player {
 	background: transparent !important;
 }
 
-html.avplay-active #videoPlayer {
+html.avplay-active #videoPlayer,
+html.avplay-active .icon-rail {
 	visibility: hidden;
 }
 

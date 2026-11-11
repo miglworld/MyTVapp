@@ -2,7 +2,7 @@
 
 An IPTV player for Samsung Smart TVs (Tizen). It plays live channels from M3U/M3U8 playlists and is driven entirely with the TV remote.
 
-- **Download:** [latest MyTvApp.wgt](https://github.com/miglworld/MyTvApp/releases/latest/download/MyTvApp.wgt) (unsigned, see [Installing](#installing))
+- **Download:** the `.wgt` attached to the [latest release](https://github.com/miglworld/MyTvApp/releases/latest) (unsigned, see [Installing](#installing))
 - **Changes:** [CHANGELOG.md](CHANGELOG.md)
 
 ## Features
@@ -33,7 +33,7 @@ In the channel list: Up/Down move, CH+/CH- page, OK plays, Back closes. On start
 
 ## Installing
 
-1. Download [MyTvApp.wgt](https://github.com/miglworld/MyTvApp/releases/latest/download/MyTvApp.wgt) from the latest release, or build it (below).
+1. Download the `.wgt` from the [latest release](https://github.com/miglworld/MyTvApp/releases/latest), or build it (below).
 2. The package is **unsigned**. Sign it with your own Samsung certificate: the TizenBrew Installer does this on Tizen 7+, or use `tizen package -t wgt -s <profile>`.
 3. Install it on the TV with the Tizen tools:
 

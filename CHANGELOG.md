@@ -3,7 +3,8 @@
 MyTvApp's own history starts at v0.1. Newest first. Each entry also names the version number the app showed at the time.
 
 ## v0.8 (2026-11-11)
-*Released as 1.5.2.*
+*First released as 1.5.2. The app now shows 0.8.0.*
+- The app's version number follows this changelog from here on: 1.5.2 became 0.8.0.
 - Fixed the black screen on start: the app script starts immediately, and the launcher builds the page without `document.write()`.
 - "Starting MyTvApp…" is shown until the app runs; script errors appear on screen.
 - The picture settings from v0.7 are now the optional **Picture tuning** switch (off by default).

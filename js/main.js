@@ -14,7 +14,7 @@
     // ==========================================================================
     // Config / constants
     // ==========================================================================
-    var APP_VERSION = '1.5.2';
+    var APP_VERSION = '0.8.0';
     var PLAYLISTS_KEY = 'iptv_playlists';
     var ACTIVE_PLAYLISTS_KEY = 'iptv_active_playlist_id';
     var FAVORITES_KEY = 'iptv_favorites';

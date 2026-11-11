@@ -682,6 +682,131 @@ button {
 	max-width: 1100px;
 }
 
+.now-playing-number {
+	color: #6c9fff;
+	margin-right: 14px;
+}
+
+.player-keys-hint {
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 24px;
+	text-align: center;
+	font-size: 20px;
+	color: rgba(255, 255, 255, 0.55);
+	opacity: 0;
+	transition: opacity 0.3s;
+	pointer-events: none;
+}
+
+.player-overlay.visible ~ .player-keys-hint {
+	opacity: 1;
+}
+
+.channel-panel {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	width: 680px;
+	background: rgba(8, 8, 8, 0.94);
+	border-right: 1px solid #1e1e1e;
+	display: flex;
+	flex-direction: column;
+	padding: 40px 0 24px;
+	z-index: 5;
+}
+
+.channel-panel[hidden] {
+	display: none;
+}
+
+.channel-panel-title {
+	font-size: 28px;
+	font-weight: 600;
+	padding: 0 36px 20px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.channel-panel-list {
+	flex: 1;
+	overflow: hidden;
+}
+
+.panel-row {
+	display: flex;
+	align-items: center;
+	height: 78px;
+	padding: 0 36px;
+	font-size: 24px;
+	color: #c8c8c8;
+	border-left: 4px solid transparent;
+}
+
+.panel-row.focused {
+	background: #1c2b45;
+	color: #ffffff;
+	border-left-color: #6c9fff;
+}
+
+.panel-row .panel-num {
+	width: 70px;
+	color: #6c9fff;
+	flex-shrink: 0;
+}
+
+.panel-row .panel-logo {
+	width: 64px;
+	height: 44px;
+	margin-right: 18px;
+	background: #151515 center / contain no-repeat;
+	border-radius: 6px;
+	flex-shrink: 0;
+}
+
+.panel-row .panel-name {
+	flex: 1;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.panel-row .panel-playing {
+	font-size: 16px;
+	color: #6c9fff;
+	margin-left: 12px;
+	letter-spacing: 1px;
+}
+
+.channel-panel-hint {
+	font-size: 18px;
+	color: #6f6f6f;
+	padding: 16px 36px 0;
+}
+
+.number-entry {
+	position: absolute;
+	top: 48px;
+	right: 64px;
+	min-width: 140px;
+	padding: 14px 28px;
+	font-size: 64px;
+	font-weight: 600;
+	text-align: center;
+	color: #ffffff;
+	background: rgba(8, 8, 8, 0.85);
+	border: 2px solid #6c9fff;
+	border-radius: 12px;
+	z-index: 6;
+}
+
+.number-entry[hidden] {
+	display: none;
+}
+
 .now-playing {
 	display: flex;
 	align-items: center;

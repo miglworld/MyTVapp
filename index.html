@@ -99,7 +99,7 @@
 					<div class="now-playing">
 						<div id="nowPlayingLogo" class="channel-logo"></div>
 						<div>
-							<div class="now-playing-name" id="nowPlayingName"></div>
+							<div class="now-playing-name"><span class="now-playing-number" id="nowPlayingNumber"></span><span id="nowPlayingName"></span></div>
 							<div class="now-playing-group" id="nowPlayingGroup"></div>
 							<div class="player-status" id="playerStatus"></div>
 						</div>
@@ -108,6 +108,13 @@
 						<span id="favoriteIcon">&#9734;</span><span>Favorite</span>
 					</button>
 				</div>
+				<div class="player-keys-hint" id="playerKeysHint">OK channel list &nbsp;&middot;&nbsp; &#9650;&#9660; switch channel &nbsp;&middot;&nbsp; &#9664; previous &nbsp;&middot;&nbsp; &#9654; favorite</div>
+				<div class="channel-panel" id="channelPanel" hidden>
+					<div class="channel-panel-title" id="channelPanelTitle"></div>
+					<div class="channel-panel-list" id="channelPanelList"></div>
+					<div class="channel-panel-hint">OK play &nbsp;&middot;&nbsp; CH+/CH&minus; page &nbsp;&middot;&nbsp; Back close</div>
+				</div>
+				<div class="number-entry" id="numberEntry" hidden></div>
 				<div class="toast" id="toast"></div>
 			</section>
 

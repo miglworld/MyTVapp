@@ -18,6 +18,19 @@ A Samsung Smart TV app built with Tizen Studio that streams live IPTV channels f
 - **Playback with automatic fallback** — on a Samsung TV the TV's built-in player is tried first (native HLS, not subject to CORS), then [hls.js](https://github.com/video-dev/hls.js/) (bundled locally, v1.6.19). If a player errors or shows no video within 12 s, the next one is tried. A status line in the player shows which player is in use and the exact error if a channel fails.
 - **Native text input** — the playlist URL field is a real input that opens Samsung's system keyboard, so you can also type from your phone with the SmartThings app.
 
+## Remote keys while watching
+
+| Key | Action |
+|---|---|
+| OK | Open the channel list (over the video) |
+| Up / Down, CH+ / CH- | Next / previous channel |
+| Left, PRE-CH | Previous channel you watched |
+| Right, INFO | Info bar with the Favorite button (OK toggles it) |
+| 0-9 | Jump to a channel number (after 2 s, or press OK) |
+| Back | Close the panel/info bar, then leave the player |
+
+In the channel list: Up/Down move, CH+/CH- page, OK plays, Back closes. On startup the app reopens the last channel you watched.
+
 ## Requirements
 
 - [Tizen Studio](https://developer.samsung.com/smarttv/develop/getting-started/setting-up-sdk.html) (or just the Tizen CLI tools under `tools/ide/bin` and `tools/`) with the `tv-samsung` platform installed.
@@ -50,6 +63,19 @@ tizen package -t wgt -s <your-security-profile> -- .buildResult
 ```
 
 This produces `.buildResult/TVapp.wgt`.
+
+## Install as a TizenBrew module (recommended: updates without reinstalling)
+
+TizenBrew can load this app straight from GitHub, so every push to `main` reaches the TV without rebuilding or re-signing anything.
+
+1. Open **TizenBrew** on the TV, go to the **Module Manager** and choose **Add GitHub Module**.
+2. Enter `miglworld/MyTVapp@main` (keep the `@main`: without it the CDN serves the old upstream `v1.0.0` tag, which has no module file).
+3. Launch **TVapp** from TizenBrew.
+
+Notes:
+- Files are served through the jsDelivr CDN, which caches branch files for up to 12 hours, so an update can take that long to appear.
+- The module runs inside TizenBrew and keeps its own saved playlists/favorites, separate from an installed `.wgt` copy.
+- `package.json` registers only the basic keys (TizenBrew aborts the launch if a key name is rejected); the app registers the rest itself, one by one.
 
 ## Installing on a device or emulator
 

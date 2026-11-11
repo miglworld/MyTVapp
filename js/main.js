@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var PLAYLISTS_KEY = 'iptv_playlists';
     var ACTIVE_PLAYLISTS_KEY = 'iptv_active_playlist_id';
     var FAVORITES_KEY = 'iptv_favorites';
+    var LAST_CHANNEL_KEY = 'iptv_last_channel';
     var OVERLAY_HIDE_MS = 5000;
     var TOAST_MS = 3000;
     var FETCH_TIMEOUT_MS = 15000;
@@ -36,6 +37,11 @@ document.addEventListener('DOMContentLoaded', function () {
     var IME_DONE = 65376;
     var IME_CANCEL = 65385;
 
+    // Player: rows visible in the channel-list panel, and how long a typed
+    // channel number waits for more digits before jumping.
+    var PANEL_ROWS = 11;
+    var NUMBER_ENTRY_MS = 2000;
+
     // ==========================================================================
     // State
     // ==========================================================================
@@ -59,7 +65,14 @@ document.addEventListener('DOMContentLoaded', function () {
         enginesLeft: [],
         playErrors: [],
         playFailed: false,
-        watchdogId: null
+        watchdogId: null,
+        prevChannel: null,       // { ch, context, list } for the "previous channel" key
+        lastExited: null,        // channel showing when the player was closed
+        panelOpen: false,
+        panelIndex: 0,
+        infoInteractive: false,  // Right/Info pressed: favorite button has focus
+        digitBuffer: '',
+        digitTimer: null
     };
 
     var editingPlaylistId = null;
@@ -71,11 +84,12 @@ document.addEventListener('DOMContentLoaded', function () {
     // registration. Arrow/Enter/Back are automatic on Tizen TVs.
     // ==========================================================================
     if (window.tizen && tizen.tvinputdevice) {
-        try {
-            tizen.tvinputdevice.registerKeyBatch(['ChannelUp', 'ChannelDown', 'MediaPlayPause']);
-        } catch (e) {
-            console.error('registerKeyBatch failed:', e);
-        }
+        // Registered one by one: registerKeyBatch fails as a whole if the TV
+        // does not support any single key in the list (e.g. no number pad).
+        ['ChannelUp', 'ChannelDown', 'MediaPlayPause', 'PreviousChannel', 'ChannelList', 'Info',
+         '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'].forEach(function (k) {
+            try { tizen.tvinputdevice.registerKey(k); } catch (e) { console.warn('registerKey failed:', k); }
+        });
     }
 
     // ==========================================================================
@@ -314,7 +328,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     logo: attrs['tvg-logo'] || '',
                     group: attrs['group-title'] || 'Other',
                     tvgId: attrs['tvg-id'] || '',
-                    tvgCountry: attrs['tvg-country'] || ''
+                    tvgCountry: attrs['tvg-country'] || '',
+                    chno: attrs['tvg-chno'] || ''
                 };
             } else if (line.indexOf('#') !== 0) {
                 if (pending) { pending.url = line; channels.push(pending); pending = null; }
@@ -439,7 +454,12 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(function (text) {
                 var parsed = parseM3U(text);
                 if (!parsed.length) throw new Error('No channels found');
-                parsed.forEach(function (ch) { ch.playlistId = pl.id; ch.playlistName = pl.name; });
+                // Channel number: the playlist's tvg-chno when present, else list position.
+                parsed.forEach(function (ch, i) {
+                    ch.playlistId = pl.id;
+                    ch.playlistName = pl.name;
+                    ch.number = parseInt(ch.chno, 10) || (i + 1);
+                });
                 return parsed;
             });
     }
@@ -455,6 +475,7 @@ document.addEventListener('DOMContentLoaded', function () {
             renderFavoritesRow();
             showLoading(false);
             if (options.screen) switchToScreen(options.screen);
+            if (options.after) options.after();
             return;
         }
 
@@ -477,6 +498,7 @@ document.addEventListener('DOMContentLoaded', function () {
             showLoading(false);
             if (failures.length) showToast('Could not load ' + failures.join('; '));
             if (options.screen) switchToScreen(options.screen);
+            if (options.after) options.after();
         });
     }
 
@@ -547,7 +569,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!ch) return;
         var idx = state.favorites.findIndex(function (f) { return f.url === ch.url; });
         if (idx === -1) {
-            state.favorites.push({ name: ch.name, url: ch.url, logo: ch.logo, group: ch.group, tvgCountry: ch.tvgCountry, playlistId: ch.playlistId });
+            state.favorites.push({ name: ch.name, url: ch.url, logo: ch.logo, group: ch.group, tvgCountry: ch.tvgCountry, playlistId: ch.playlistId, number: ch.number });
             showToast('Added to Favorites');
         } else {
             state.favorites.splice(idx, 1);
@@ -982,12 +1004,52 @@ document.addEventListener('DOMContentLoaded', function () {
     // Player screen — fullscreen, favorite toggled via a real focusable button
     // (long-press proved unreliable on this remote/WebKit combination).
     // ==========================================================================
-    function playChannel(ch, context) {
+    function playChannel(ch, context, list) {
+        var current = state.nowPlaying || state.lastExited;
+        if (current && current.url !== ch.url) {
+            state.prevChannel = { ch: current, context: state.zapContext, list: state.zapList };
+        }
+        state.lastExited = null;
         state.nowPlaying = ch;
         state.zapContext = context;
-        state.zapList = context === 'favorites' ? visibleFavorites() : (state.categories[state.activeCategoryIndex] || { channels: [] }).channels;
+        state.zapList = list || (context === 'favorites' ? visibleFavorites() : (state.categories[state.activeCategoryIndex] || { channels: [] }).channels);
+        saveLastChannel(ch, context);
+        closeChannelPanel();
+        endInfoInteractive();
         showScreen('screen-player');
         startPlayback();
+    }
+
+    function playPrevious() {
+        var p = state.prevChannel;
+        if (!p) { showToast('No previous channel yet'); return; }
+        playChannel(p.ch, p.context, p.list);
+    }
+
+    function saveLastChannel(ch, context) {
+        try {
+            localStorage.setItem(LAST_CHANNEL_KEY, JSON.stringify({
+                url: ch.url, name: ch.name, group: ch.group, playlistId: ch.playlistId, context: context
+            }));
+        } catch (e) { /* non-fatal */ }
+    }
+
+    // Startup: reopen the last watched channel if its playlist loaded.
+    function reopenLastChannel() {
+        var saved = null;
+        try { saved = JSON.parse(localStorage.getItem(LAST_CHANNEL_KEY) || 'null'); } catch (e) { saved = null; }
+        if (!saved || !saved.url) return;
+        if (saved.context === 'favorites') {
+            var favs = visibleFavorites();
+            var fav = favs.find(function (f) { return f.url === saved.url; });
+            if (fav) { playChannel(fav, 'favorites', favs); return; }
+        }
+        for (var i = 0; i < state.categories.length; i++) {
+            var cat = state.categories[i];
+            if (cat.playlistId !== saved.playlistId || cat.name !== saved.group) continue;
+            var ch = cat.channels.find(function (c) { return c.url === saved.url; });
+            if (ch) { state.activeCategoryIndex = i; playChannel(ch, 'category', cat.channels); return; }
+        }
     }
 
     function zapChannel(delta) {
@@ -996,7 +1058,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var idx = list.findIndex(function (c) { return c.url === state.nowPlaying.url; });
         if (idx === -1) idx = 0;
         idx = (idx + delta + list.length) % list.length;
-        playChannel(list[idx], state.zapContext);
+        playChannel(list[idx], state.zapContext, list);
     }
 
     // Playback strategy: on a Samsung TV, use the TV's built-in player first
@@ -1028,6 +1090,7 @@ document.addEventListener('DOMContentLoaded', function () {
         state.isPlaying = false;
 
         document.getElementById('nowPlayingName').textContent = ch.name;
+        document.getElementById('nowPlayingNumber').textContent = ch.number ? String(ch.number) : '';
         document.getElementById('nowPlayingGroup').textContent = ch.group || '';
         var logoEl = document.getElementById('nowPlayingLogo');
         logoEl.style.backgroundImage = ch.logo ? ('url(' + JSON.stringify(ch.logo) + ')') : '';
@@ -1183,14 +1246,157 @@ document.addEventListener('DOMContentLoaded', function () {
     function showOverlay() {
         var overlay = document.getElementById('playerOverlay');
         overlay.classList.add('visible');
-        Focus.setZone('playerFavorite', 0, 0);
         if (state.overlayTimeoutId) clearTimeout(state.overlayTimeoutId);
         state.overlayTimeoutId = setTimeout(hideOverlayIfPlaying, OVERLAY_HIDE_MS);
     }
 
     // The overlay (with the status line) stays up until video is actually playing.
     function hideOverlayIfPlaying() {
-        if (state.isPlaying) document.getElementById('playerOverlay').classList.remove('visible');
+        if (!state.isPlaying) return;
+        document.getElementById('playerOverlay').classList.remove('visible');
+        endInfoInteractive();
+    }
+
+    // Right / Info: show the overlay with the Favorite button focused, so OK
+    // toggles the favorite. Otherwise OK opens the channel list.
+    function startInfoInteractive() {
+        state.infoInteractive = true;
+        showOverlay();
+        Focus.setZone('playerFavorite', 0, 0);
+    }
+
+    function endInfoInteractive() {
+        state.infoInteractive = false;
+        var btn = document.getElementById('favoriteBtn');
+        if (btn) btn.classList.remove('focused');
+    }
+
+    // ==========================================================================
+    // Channel-list panel (over the video). Only PANEL_ROWS rows are rendered at
+    // a time, so a 2,000-channel category stays light.
+    // ==========================================================================
+    function openChannelPanel() {
+        var list = state.zapList || [];
+        if (!list.length) { showToast('No channel list for this channel'); return; }
+        var idx = state.nowPlaying ? list.findIndex(function (c) { return c.url === state.nowPlaying.url; }) : 0;
+        state.panelIndex = idx < 0 ? 0 : idx;
+        state.panelOpen = true;
+        endInfoInteractive();
+        var cat = state.categories[state.activeCategoryIndex];
+        document.getElementById('channelPanelTitle').textContent =
+            state.zapContext === 'favorites' ? 'Favorites' : (cat ? cat.name : 'Channels');
+        document.getElementById('channelPanel').hidden = false;
+        renderChannelPanel();
+    }
+
+    function closeChannelPanel() {
+        state.panelOpen = false;
+        var panel = document.getElementById('channelPanel');
+        if (panel) panel.hidden = true;
+    }
+
+    function renderChannelPanel() {
+        var list = state.zapList;
+        var box = document.getElementById('channelPanelList');
+        box.innerHTML = '';
+        var start = Math.max(0, Math.min(state.panelIndex - Math.floor(PANEL_ROWS / 2), list.length - PANEL_ROWS));
+        var end = Math.min(list.length, start + PANEL_ROWS);
+        var frag = document.createDocumentFragment();
+        for (var i = start; i < end; i++) {
+            var ch = list[i];
+            var row = document.createElement('div');
+            row.className = 'panel-row' + (i === state.panelIndex ? ' focused' : '');
+            var num = document.createElement('span');
+            num.className = 'panel-num';
+            num.textContent = ch.number ? String(ch.number) : '';
+            var logo = document.createElement('span');
+            logo.className = 'panel-logo';
+            if (ch.logo) logo.style.backgroundImage = 'url(' + JSON.stringify(ch.logo) + ')';
+            var name = document.createElement('span');
+            name.className = 'panel-name';
+            name.textContent = ch.name;
+            row.appendChild(num);
+            row.appendChild(logo);
+            row.appendChild(name);
+            if (state.nowPlaying && ch.url === state.nowPlaying.url) {
+                var playing = document.createElement('span');
+                playing.className = 'panel-playing';
+                playing.textContent = 'PLAYING';
+                row.appendChild(playing);
+            }
+            frag.appendChild(row);
+        }
+        box.appendChild(frag);
+    }
+
+    function moveChannelPanel(delta) {
+        var n = state.zapList.length;
+        if (!n) return;
+        if (Math.abs(delta) === 1) state.panelIndex = (state.panelIndex + delta + n) % n;
+        else state.panelIndex = Math.max(0, Math.min(n - 1, state.panelIndex + delta));
+        renderChannelPanel();
+    }
+
+    // ==========================================================================
+    // Number zapping: digits collect for NUMBER_ENTRY_MS, then jump. The
+    // current list is searched first, then every loaded channel.
+    // ==========================================================================
+    function addDigit(d) {
+        if (state.digitBuffer.length >= 4) return;
+        state.digitBuffer += d;
+        var box = document.getElementById('numberEntry');
+        box.textContent = state.digitBuffer;
+        box.hidden = false;
+        if (state.digitTimer) clearTimeout(state.digitTimer);
+        state.digitTimer = setTimeout(commitDigits, NUMBER_ENTRY_MS);
+    }
+
+    function commitDigits() {
+        if (state.digitTimer) { clearTimeout(state.digitTimer); state.digitTimer = null; }
+        var n = parseInt(state.digitBuffer, 10);
+        state.digitBuffer = '';
+        document.getElementById('numberEntry').hidden = true;
+        if (!n) return;
+        var list = state.zapList || [];
+        var ch = list.find(function (c) { return c.number === n; });
+        if (ch) { playChannel(ch, state.zapContext, list); return; }
+        for (var i = 0; i < state.categories.length; i++) {
+            var found = state.categories[i].channels.find(function (c) { return c.number === n; });
+            if (found) { state.activeCategoryIndex = i; playChannel(found, 'category', state.categories[i].channels); return; }
+        }
+        showToast('No channel ' + n);
+    }
+
+    function handlePlayerKey(code) {
+        if (state.panelOpen) {
+            switch (code) {
+                case KEYCODE.UP: moveChannelPanel(-1); break;
+                case KEYCODE.DOWN: moveChannelPanel(1); break;
+                case KEYCODE.CH_UP: moveChannelPanel(-PANEL_ROWS); break;
+                case KEYCODE.CH_DOWN: moveChannelPanel(PANEL_ROWS); break;
+                case KEYCODE.ENTER: playChannel(state.zapList[state.panelIndex], state.zapContext, state.zapList); break;
+                case KEYCODE.BACK: case KEYCODE.LEFT: case KEYCODE.CH_LIST: closeChannelPanel(); break;
+            }
+            return;
+        }
+        if (code >= 48 && code <= 57) { addDigit(String(code - 48)); return; }
+        if (code >= 96 && code <= 105) { addDigit(String(code - 96)); return; }
+        if (state.digitBuffer && code === KEYCODE.ENTER) { commitDigits(); return; }
+        switch (code) {
+            case KEYCODE.ENTER:
+                if (state.infoInteractive) Focus.select(); else openChannelPanel();
+                break;
+            case KEYCODE.UP: case KEYCODE.CH_UP: zapChannel(1); break;
+            case KEYCODE.DOWN: case KEYCODE.CH_DOWN: zapChannel(-1); break;
+            case KEYCODE.LEFT: case KEYCODE.PREV_CH: playPrevious(); break;
+            case KEYCODE.RIGHT: case KEYCODE.INFO: startInfoInteractive(); break;
+            case KEYCODE.CH_LIST: openChannelPanel(); break;
+            case KEYCODE.MEDIA_PLAY_PAUSE: togglePlayPause(); break;
+            case KEYCODE.BACK:
+                if (state.infoInteractive) { endInfoInteractive(); document.getElementById('playerOverlay').classList.remove('visible'); }
+                else exitPlayerToGrid();
+                break;
+        }
     }
 
     function togglePlayPause() {
@@ -1202,7 +1408,13 @@ document.addEventListener('DOMContentLoaded', function () {
         state.playToken = (state.playToken || 0) + 1;
         stopEngines();
         state.isPlaying = false;
+        state.lastExited = state.nowPlaying;
         state.nowPlaying = null;
+        closeChannelPanel();
+        endInfoInteractive();
+        if (state.digitTimer) { clearTimeout(state.digitTimer); state.digitTimer = null; }
+        state.digitBuffer = '';
+        document.getElementById('numberEntry').hidden = true;
         switchToScreen('screen-grid');
     }
 
@@ -1231,7 +1443,8 @@ document.addEventListener('DOMContentLoaded', function () {
     // ==========================================================================
     var KEYCODE = {
         LEFT: 37, UP: 38, RIGHT: 39, DOWN: 40, ENTER: 13, BACK: 10009,
-        CH_UP: 427, CH_DOWN: 428, MEDIA_PLAY_PAUSE: 10252
+        CH_UP: 427, CH_DOWN: 428, MEDIA_PLAY_PAUSE: 10252,
+        PREV_CH: 10190, CH_LIST: 10073, INFO: 457
     };
 
     document.addEventListener('keydown', function (event) {
@@ -1251,6 +1464,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 clearTimeout(state.overlayTimeoutId);
                 state.overlayTimeoutId = setTimeout(hideOverlayIfPlaying, OVERLAY_HIDE_MS);
             }
+            handlePlayerKey(event.keyCode);
+            return;
         }
 
         switch (event.keyCode) {
@@ -1260,9 +1475,6 @@ document.addEventListener('DOMContentLoaded', function () {
             case KEYCODE.RIGHT: Focus.move('right'); break;
             case KEYCODE.ENTER: Focus.select(); break;
             case KEYCODE.BACK: handleBack(); break;
-            case KEYCODE.CH_UP: if (onPlayer) zapChannel(1); break;
-            case KEYCODE.CH_DOWN: if (onPlayer) zapChannel(-1); break;
-            case KEYCODE.MEDIA_PLAY_PAUSE: if (onPlayer) togglePlayPause(); break;
         }
     });
 
@@ -1275,5 +1487,5 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // First run (or every playlist deleted): open the Playlists screen so the
     // one-press iptv-org presets are right there.
-    refreshActiveChannels({ screen: state.playlists.length ? 'screen-grid' : 'screen-settings' });
+    refreshActiveChannels({ screen: state.playlists.length ? 'screen-grid' : 'screen-settings', after: reopenLastChannel });
 });

@@ -536,6 +536,22 @@ button {
 	margin-top: 32px;
 }
 
+.playlist-row.option-row.second {
+	margin-top: 0;
+}
+
+.playlist-row.log-row {
+	display: block;
+	text-align: left;
+	white-space: pre-wrap;
+	word-break: break-all;
+	font-family: monospace;
+	font-size: 17px;
+	line-height: 1.45;
+	color: #8a8a8a;
+	margin-top: 32px;
+}
+
 .playlist-action-btn.delete {
 	color: #ff6b6b;
 }

@@ -5,7 +5,17 @@
   "packageType": "app",
   "appName": "MyTvApp",
   "appPath": "index.html",
-  "keys": ["ChannelUp", "ChannelDown", "MediaPlayPause"],
+  "keys": [
+    "ChannelUp",
+    "ChannelDown",
+    "MediaPlayPause"
+  ],
   "license": "UNLICENSED",
-  "private": true
+  "private": true,
+  "homepage": "https://github.com/miglworld/MyTvApp",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/miglworld/MyTvApp.git"
+  },
+  "author": "miglworld"
 }

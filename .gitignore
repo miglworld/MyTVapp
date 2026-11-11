@@ -1,3 +1,7 @@
+# Built packages: attached to GitHub Releases, not kept in the repo
+# (build one with scripts/build-wgt.sh)
+*.wgt
+
 # Tizen Studio build output (regenerate with `tizen build-web`)
 .buildResult/
 
@@ -7,6 +11,7 @@
 .settings/
 .sign/
 
-# Ad-hoc/local build artifacts
-*.wgt
-!/MyTvApp.wgt
+# Local tooling
+.claude/
+.DS_Store
+node_modules/

@@ -1,23 +1,21 @@
 # MyTvApp
 
-> Fork of [KaashDev/TVapp](https://github.com/KaashDev/TVapp), the original app by KaashDev. See [Changes in this fork](#changes-in-this-fork).
+An IPTV player for Samsung Smart TVs (Tizen). It plays live channels from M3U/M3U8 playlists and is driven entirely with the TV remote.
 
-MyTvApp (formerly TVapp) is a Samsung Smart TV app built with Tizen Studio that streams live IPTV channels from M3U/M3U8 playlists, navigable entirely with a TV remote.
-
-## Demo
-
-[![Watch the demo](images/thumbnail.png)](https://www.youtube.com/watch?v=Uj-7Cc0Xxqk)
+- **Download:** [latest MyTvApp.wgt](https://github.com/miglworld/MyTvApp/releases/latest/download/MyTvApp.wgt) (unsigned, see [Installing](#installing))
+- **Changes:** [CHANGELOG.md](CHANGELOG.md)
 
 ## Features
 
-- **Multiple playlists, multiple active at once** — add any number of M3U/M3U8 playlist URLs in Settings, and toggle each one active/inactive independently with a checkbox. Categories from different active playlists are kept visually separate (grouped under a header per playlist) rather than merged together.
-- **One-press iptv-org presets** — Settings offers **+ Add IPTV-ORG Portugal** (`countries/pt.m3u`) and **+ Add IPTV-ORG All Countries** (`index.country.m3u`), fetched live from `iptv-org.github.io`. No playlist is bundled in the package.
-- **Categories & channel browsing** — channels are grouped by `group-title` into an alphabetical, two-column category list, then into a channel grid per category.
-- **Favorites** — star any channel while watching it. Favorites persist independently of which playlists are active, but are only *shown* while their source playlist is active (deactivating a playlist hides its favorites without deleting them; deleting the playlist removes them for good).
-- **Remote-control navigation** — a custom focus-zone system drives all navigation via D-pad (arrow keys + Enter/OK) and the remote's Back key; no mouse/pointer required. Includes Channel Up/Down zapping and Play/Pause from the remote.
-- **Playback with automatic fallback** — in the installed app, Samsung's native player (**AVPlay**) is used first: it opens stream URLs itself (no CORS restrictions) and decodes HLS natively, like other Samsung IPTV apps. Then the browser's `<video>` element, then [hls.js](https://github.com/video-dev/hls.js/) (bundled, v1.6.19). If a player errors or shows no video within 12 s, the next one is tried. A status line in the player shows which player is in use and every player's error if a channel fails.
-- **Picture tuning (optional, off by default)** — a switch at the bottom of Settings. On: the Samsung player starts adaptive streams at their highest quality and keeps the stream's own picture shape. Turn it off if the picture stays black.
-- **Native text input** — the playlist URL field is a real input that opens Samsung's system keyboard, so you can also type from your phone with the SmartThings app.
+- **Multiple playlists, several active at once.** Add any number of M3U/M3U8 playlist URLs in Settings and switch each one on or off. Categories from different playlists stay separate, under a header per playlist.
+- **One-press iptv-org presets.** Settings offers **+ Add IPTV-ORG Portugal** and **+ Add IPTV-ORG All Countries**, fetched live from `iptv-org.github.io`. No playlist is bundled in the package.
+- **Categories and channel grids.** Channels are grouped by `group-title` into an alphabetical two-column list, then a channel grid per category.
+- **Favorites.** Star a channel while watching it. Favorites are kept when a playlist is switched off (they are only hidden) and removed when the playlist is deleted.
+- **Remote-control navigation.** D-pad, OK and Back everywhere, plus channel up/down, number keys, previous channel and play/pause.
+- **Three players with automatic fallback.** In the installed app, Samsung's own player (**AVPlay**) is tried first: it opens streams itself (no CORS limits) and decodes HLS natively. Then the browser's `<video>` element, then [hls.js](https://github.com/video-dev/hls.js/) (bundled, v1.6.19). If a player fails or shows no video within 12 s, the next one is tried. A status line shows the player in use, the stream's resolution and bitrate, and every player's error if a channel fails.
+- **Picture tuning (optional, off by default).** A switch at the bottom of Settings. On: the Samsung player starts adaptive streams at their highest quality and keeps the stream's own picture shape. Turn it off if the picture stays black.
+- **Updates without reinstalling.** The installed app downloads the current version from GitHub on every start (see [How updates work](#how-updates-work)).
+- **System keyboard.** The playlist URL field opens Samsung's keyboard, so you can also type from your phone with the SmartThings app.
 
 ## Remote keys while watching
 
@@ -28,94 +26,104 @@ MyTvApp (formerly TVapp) is a Samsung Smart TV app built with Tizen Studio that 
 | Left, PRE-CH | Previous channel you watched |
 | Right, INFO | Info bar with the Favorite button (OK toggles it) |
 | 0-9 | Jump to a channel number (after 2 s, or press OK) |
+| Play/Pause | Pause or resume |
 | Back | Close the panel/info bar, then leave the player (back to the channel grid you came from) |
 
 In the channel list: Up/Down move, CH+/CH- page, OK plays, Back closes. On startup the app reopens the last channel you watched.
 
-## Requirements
+## Installing
 
-- [Tizen Studio](https://developer.samsung.com/smarttv/develop/getting-started/setting-up-sdk.html) (or just the Tizen CLI tools under `tools/ide/bin` and `tools/`) with the `tv-samsung` platform installed.
-- A Samsung TV or the Tizen TV emulator/simulator running Tizen 2.3+.
-- A signing security profile registered with the Tizen CLI (`tizen security-profiles list` / `tizen security-profiles add`) to package and install the app.
-
-## Project structure
-
-```
-config.xml           Tizen widget manifest (app id, privileges, profile)
-index.html            App shell — all screens as <section> elements
-css/style.css         All styling (focus states, layout, screens)
-js/main.js            App logic: Focus/navigation, playlists, playback, favorites
-lib/hls.min.js        hls.js 1.6.19, bundled (license: lib/hls.LICENSE)
-images/thumbnail.png  README demo thumbnail
-noun-live-tv-3548799.png   Widget icon referenced by config.xml
-MyTvApp.wgt           Pre-built UNSIGNED package (sign with your own Samsung certificate)
-```
-
-## Building
-
-From the project root:
+1. Download [MyTvApp.wgt](https://github.com/miglworld/MyTvApp/releases/latest/download/MyTvApp.wgt) from the latest release, or build it (below).
+2. The package is **unsigned**. Sign it with your own Samsung certificate: the TizenBrew Installer does this on Tizen 7+, or use `tizen package -t wgt -s <profile>`.
+3. Install it on the TV with the Tizen tools:
 
 ```bash
-# 1. Compile the web content into .buildResult/
-tizen build-web -- .
+sdb connect <tv-ip-address>
+tizen install -n MyTvApp.wgt -t <device-id>
+```
 
-# 2. Package .buildResult/ into a signed .wgt
+Or use the **TizenBrew Installer**: set the TV's Developer Mode Host PC IP to your computer's IP and reboot, enter `miglworld/MyTvApp` in the installer (it takes the package from the latest release and signs it), then set the Host PC IP back to `127.0.0.1` and reboot.
+
+Installing over an earlier version keeps your playlists and favorites. If a copy signed with a different certificate is already installed, uninstall it first, or the install fails with "Author certificate not match".
+
+### As a TizenBrew module (interface testing only)
+
+A TizenBrew module runs as a plain web page without Samsung's TV APIs. It only has the browser players, which most free IPTV servers block, so use it to try the interface, not to watch.
+
+1. In **TizenBrew**, open the **Module Manager** and choose **Add GitHub Module**.
+2. Enter `miglworld/MyTvApp@main`. Keep the `@main`: without it the CDN serves the latest release tag, which can be older than `main`.
+3. Launch **MyTvApp** from TizenBrew.
+
+Module files come through the jsDelivr CDN, which caches branch files for up to 12 hours. The module keeps its own playlists and favorites, separate from an installed copy.
+
+## How updates work
+
+The package is installed **once**. It opens `launcher.html`, which on every start downloads the current app from GitHub Pages (`https://miglworld.github.io/MyTvApp/`, served from `main`) and builds it inside its own page, so Samsung's AVPlay player keeps working. Merging into `main` is all it takes to update the TV.
+
+- If GitHub cannot be reached within 5 s, or the downloaded app does not start within 10 s, the launcher opens the copy bundled in the package.
+- Settings shows the version and where it was loaded from (GitHub or bundled copy).
+- The screen says "Starting MyTvApp…" until the app runs. If the app script fails, the error is shown in a red box at the bottom of the screen.
+- A new `.wgt` is only needed when `launcher.html` or `config.xml` changes.
+
+## Development
+
+### Project structure
+
+```
+config.xml            Tizen widget manifest (app id, privileges, start page)
+launcher.html         Start page of the installed app: loads the app from GitHub Pages
+index.html            The app: all screens as <section> elements
+css/style.css         All styling
+js/main.js            App logic: focus/navigation, playlists, playback, favorites
+lib/hls.min.js        hls.js 1.6.19, bundled (license: lib/hls.LICENSE)
+icon.png              App icon referenced by config.xml
+package.json          Version (also the launcher's cache key) and TizenBrew module info
+scripts/build-wgt.sh  Builds the unsigned MyTvApp.wgt
+.nojekyll             Makes GitHub Pages serve the files as they are
+```
+
+There is no build step for the app itself: `index.html` runs as it is, in a desktop browser too (`python3 -m http.server`, then open `index.html`; the Samsung player is not available there).
+
+### Releasing a change
+
+1. Bump the version in **three places**, to the same value: `package.json`, `config.xml`, and `APP_VERSION` in `js/main.js`. TVs cache the app files by this version, so a change without a bump may not reach them.
+2. Add a line to [CHANGELOG.md](CHANGELOG.md).
+3. Merge into `main`. GitHub Pages publishes it and TVs pick it up on the next start.
+4. For a GitHub release, build the package and attach it:
+
+```bash
+./scripts/build-wgt.sh
+gh release create v<version> MyTvApp.wgt --title "MyTvApp <version>"
+```
+
+`scripts/build-wgt.sh` refuses to build if the three versions differ.
+
+### Building a signed package with the Tizen CLI
+
+Needs [Tizen Studio](https://developer.samsung.com/smarttv/develop/getting-started/setting-up-sdk.html) (or its CLI tools) with the `tv-samsung` platform, and a signing profile (`tizen security-profiles list`).
+
+```bash
+tizen build-web -- .
 tizen package -t wgt -s <your-security-profile> -- .buildResult
 ```
 
 This produces `.buildResult/MyTvApp.wgt`.
 
-## Which install to use
+### Compatibility notes
 
-Install the `.wgt` **once**. It contains a small launcher (`launcher.html`) that, on every start, downloads the current app from GitHub Pages (`https://miglworld.github.io/MyTvApp/`, built from `main`) and builds it inside its own page (stylesheet, markup, then the scripts in order), so Samsung's AVPlay player keeps working. Merging a pull request into `main` is therefore all it takes to update the TV; no new `.wgt` is needed.
+- TV browsers are old: the CSS avoids Grid, `gap`, `aspect-ratio` and `inset`, and the JavaScript is plain ES5.
+- Remote keys are read by `keyCode`, as in Samsung's own samples.
+- The app id in `config.xml` (`wAKjt4yhqx.TVapp`) is what the TV uses to recognise the app. Changing it makes the TV treat it as a different app, with empty playlists and favorites.
 
-- If GitHub cannot be reached within 5 s, or the downloaded app does not start within 10 s, the launcher starts the copy bundled in the package.
-- Settings shows the version and where it was loaded from (GitHub or bundled copy).
-- `package.json` `version` is the cache key: **bump it with every change**, or TVs keep the cached files.
-- A new `.wgt` is only needed when `launcher.html` or `config.xml` changes. **1.5.2 changed the launcher** (it no longer uses `document.write()`), so reinstall the `.wgt` once to get it; the older launcher keeps working with newer app versions.
-- If the app script fails, the error is shown in a red box at the bottom of the screen instead of a blank screen. While the script has not started, the screen says "Starting MyTvApp…".
+## Network dependence
 
-A TizenBrew module (below) runs as a plain web page without Samsung's TV APIs, so it only has the browser players, which most free IPTV servers block. Use it only to test the interface.
+Playlists are fetched from their URL at startup; a load that hangs is stopped after 15 seconds with a message. Channels stream from their own servers, and many free iptv-org streams are offline or geo-blocked at any given time.
 
-## Install as a TizenBrew module (recommended: updates without reinstalling)
+## Credits and license
 
-TizenBrew can load this app straight from GitHub, so every push to `main` reaches the TV without rebuilding or re-signing anything.
+- MyTvApp started from [KaashDev/TVapp](https://github.com/KaashDev/TVapp) and has since been largely rewritten.
+- [hls.js](https://github.com/video-dev/hls.js/) is bundled under its own license (`lib/hls.LICENSE`).
+- Preset playlists come from [iptv-org](https://github.com/iptv-org/iptv).
+- App icon: "Live TV" from the Noun Project.
 
-1. Open **TizenBrew** on the TV, go to the **Module Manager** and choose **Add GitHub Module**.
-2. Enter `miglworld/MyTvApp@main` (keep the `@main`: without it the CDN serves the old upstream `v1.0.0` tag, which has no module file).
-3. Launch **MyTvApp** from TizenBrew.
-
-Notes:
-- Files are served through the jsDelivr CDN, which caches branch files for up to 12 hours, so an update can take that long to appear.
-- The module runs inside TizenBrew and keeps its own saved playlists/favorites, separate from an installed `.wgt` copy.
-- `package.json` registers only the basic keys (TizenBrew aborts the launch if a key name is rejected); the app registers the rest itself, one by one.
-
-## Installing on a device or emulator
-
-```bash
-# Connect to the TV/emulator (skip if already connected)
-sdb connect <tv-ip-address>
-
-# Install
-tizen install -n MyTvApp.wgt -t <device-id> -- .buildResult
-```
-
-Alternatively, install the pre-built `MyTvApp.wgt` from this repo. It is **unsigned**: sign it with your own Samsung certificate (the TizenBrew Installer does this on Tizen 7+, or use `tizen package -t wgt -s <profile>`). If an older copy signed by someone else is installed, uninstall it first or the install fails with "Author certificate not match".
-
-## Notes on network dependence
-
-Playlists are fetched from their URL at startup; loads that hang are aborted after 15 seconds with an error toast rather than blocking the UI. Individual channels stream from their own servers, and many free iptv-org streams are offline or geo-blocked at any given time.
-
-## Changes in this fork
-
-- Replaced the custom D-pad keyboard with a native input (Samsung IME + SmartThings phone keyboard).
-- TV built-in player first, hls.js fallback, 12 s no-video watchdog, on-screen status line.
-- hls.js bundled locally and pinned (was loaded from a CDN as `hls.js@1` at runtime).
-- Fatal stream errors end with a message instead of retrying forever or hanging silently.
-- Channel grids render in batches of 60 (big categories had 1,000-2,000 tiles at once); category list built in one DOM pass.
-- Removed the bundled 14k-channel playlist (old stored entry is migrated away; its favorites stay playable) and added iptv-org presets.
-- Removed the Donate screen and unused images; cleaned duplicate privileges in `config.xml`; fixed two broken `@keyframes` rules (loading spinner).
-
-## Credits
-
-Original app: [KaashDev/TVapp](https://github.com/KaashDev/TVapp). The upstream repository has no license file, so this fork is shared for personal use and to offer changes back upstream.
+The original project has no license file, so this repository does not carry an open-source license either.

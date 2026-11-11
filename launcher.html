@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MyTvApp</title>
+<!-- Samsung TV Web API (AVPlay). Loaded here so it stays available after the
+     app page replaces this one. -->
+<script type="text/javascript" src="$WEBAPIS/webapis/webapis.js"></script>
+<style>
+	html, body { margin: 0; width: 1920px; height: 1080px; background: #000; color: #8a8a8a;
+		font-family: 'Samsung One', 'Noto Sans', Arial, sans-serif; overflow: hidden; }
+	#msg { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 28px; }
+</style>
+</head>
+<body>
+<div id="msg">Loading MyTvApp&hellip;</div>
+<script>
+// MyTvApp launcher (installed once).
+// Each start it downloads the current app from GitHub Pages (built from the
+// repo's main branch) and runs it inside this installed app, so Samsung's
+// TV APIs, AVPlay included, keep working. If GitHub cannot be reached in
+// time, it starts the copy bundled in this package instead.
+(function () {
+    'use strict';
+    var REMOTE = 'https://miglworld.github.io/MyTvApp/';
+    var TIMEOUT_MS = 5000;
+
+    function startLocal(reason) {
+        try { sessionStorage.setItem('mytvapp_source', 'bundled copy (' + reason + ')'); } catch (e) { /* ignore */ }
+        location.replace('index.html');
+    }
+
+    function fetchText(url) {
+        return new Promise(function (resolve, reject) {
+            var done = false;
+            var timer = setTimeout(function () { if (!done) { done = true; reject(new Error('timeout')); } }, TIMEOUT_MS);
+            fetch(url, { cache: 'no-store' }).then(function (res) {
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                return res.text();
+            }).then(function (text) {
+                if (done) return;
+                done = true; clearTimeout(timer); resolve(text);
+            }, function (err) {
+                if (done) return;
+                done = true; clearTimeout(timer); reject(err);
+            });
+        });
+    }
+
+    var now = Date.now();
+    // package.json carries the version; it doubles as the cache key so the TV
+    // re-downloads the app files only when the version changes.
+    fetchText(REMOTE + 'package.json?t=' + now).then(function (pkgText) {
+        var version = JSON.parse(pkgText).version || String(now);
+        return fetchText(REMOTE + 'index.html?v=' + encodeURIComponent(version)).then(function (html) {
+            return { html: html, version: version };
+        });
+    }).then(function (r) {
+        if (r.html.indexOf('id="app"') === -1) throw new Error('unexpected page');
+        var v = encodeURIComponent(r.version);
+        // Point relative src/href at GitHub Pages, versioned. Absolute URLs,
+        // $WEBAPIS paths, data: and #anchors are left alone.
+        var html = r.html.replace(/\b(src|href)="(?!https?:|\/\/|\$|data:|#)([^"]+)"/g, function (m, attr, path) {
+            return attr + '="' + REMOTE + path + (path.indexOf('?') === -1 ? '?' : '&') + 'v=' + v + '"';
+        });
+        // The launcher already loaded webapis.js; drop the page's own copy
+        // (its $WEBAPIS path only resolves for the installed app's own files).
+        html = html.replace(/<script[^>]*\$WEBAPIS[^>]*><\/script>/g, '');
+        // Tell the app where it came from (shown in Settings).
+        // Safety net: if the downloaded app has not started within 10 s,
+        // fall back to the bundled copy instead of leaving a blank screen.
+        html = html.replace('<head>', '<head><script>window.MYTVAPP_SOURCE = ' +
+            JSON.stringify('GitHub (' + r.version + ')') + ';' +
+            'setTimeout(function(){if(!window.MYTVAPP_STARTED){try{sessionStorage.setItem("mytvapp_source","bundled copy (GitHub app did not start)")}catch(e){}location.replace("index.html");}},10000);' +
+            '<\/script>');
+        document.open();
+        document.write(html);
+        document.close();
+    }).catch(function (err) {
+        startLocal(err && err.message ? err.message : 'offline');
+    });
+})();
+</script>
+</body>
+</html>

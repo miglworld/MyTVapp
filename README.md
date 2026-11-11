@@ -66,14 +66,21 @@ This produces `.buildResult/MyTvApp.wgt`.
 
 ## Which install to use
 
-Use the **installed `.wgt`** to watch IPTV. Only an installed app can use Samsung's AVPlay player. A TizenBrew module runs as a plain web page without Samsung's TV APIs, so it only has the browser players, and most free IPTV servers block those (`manifestLoadError`, `format not supported`). The module route below is fine for testing the interface.
+Install the `.wgt` **once**. It contains a small launcher (`launcher.html`) that, on every start, downloads the current app from GitHub Pages (`https://miglworld.github.io/MyTvApp/`, built from `main`) and runs it inside the installed app, so Samsung's AVPlay player keeps working. Merging a pull request into `main` is therefore all it takes to update the TV; no new `.wgt` is needed.
+
+- If GitHub cannot be reached within 5 s, or the downloaded app does not start within 10 s, the launcher starts the copy bundled in the package.
+- Settings shows the version and where it was loaded from (GitHub or bundled copy).
+- `package.json` `version` is the cache key: **bump it with every change**, or TVs keep the cached files.
+- A new `.wgt` is only needed when `launcher.html` or `config.xml` changes.
+
+A TizenBrew module (below) runs as a plain web page without Samsung's TV APIs, so it only has the browser players, which most free IPTV servers block. Use it only to test the interface.
 
 ## Install as a TizenBrew module (recommended: updates without reinstalling)
 
 TizenBrew can load this app straight from GitHub, so every push to `main` reaches the TV without rebuilding or re-signing anything.
 
 1. Open **TizenBrew** on the TV, go to the **Module Manager** and choose **Add GitHub Module**.
-2. Enter `miglworld/MyTVapp@main` (keep the `@main`: without it the CDN serves the old upstream `v1.0.0` tag, which has no module file).
+2. Enter `miglworld/MyTvApp@main` (keep the `@main`: without it the CDN serves the old upstream `v1.0.0` tag, which has no module file).
 3. Launch **MyTvApp** from TizenBrew.
 
 Notes:

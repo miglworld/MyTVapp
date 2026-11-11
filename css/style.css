@@ -415,6 +415,12 @@ button {
 /* ==========================================================================
    Settings screen — playlist management
    ========================================================================== */
+.app-version {
+	font-size: 18px;
+	color: #5a5a5a;
+	margin-top: 36px;
+}
+
 .settings-hint {
 	font-size: 20px;
 	color: #6c6c6c;

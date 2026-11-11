@@ -2,6 +2,9 @@
 
 MyTvApp's own history starts at v0.1. Newest first. Each entry also names the version number the app showed at the time.
 
+## v0.9.2 (2026-11-11)
+- No changes to the app: a second self-update run on the TV.
+
 ## v0.9.1 (2026-11-11)
 - No changes to the app: the first version delivered to the TV by self-update, to confirm that it works.
 

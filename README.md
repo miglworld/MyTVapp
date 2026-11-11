@@ -14,6 +14,7 @@ An IPTV player for Samsung Smart TVs (Tizen). It plays live channels from M3U/M3
 - **Remote-control navigation.** D-pad, OK and Back everywhere, plus channel up/down, number keys, previous channel and play/pause.
 - **Three players with automatic fallback.** In the installed app, Samsung's own player (**AVPlay**) is tried first: it opens streams itself (no CORS limits) and decodes HLS natively. Then the browser's `<video>` element, then [hls.js](https://github.com/video-dev/hls.js/) (bundled, v1.6.19). If a player fails or shows no video within 12 s, the next one is tried. A status line shows the player in use, the stream's resolution and bitrate, and every player's error if a channel fails.
 - **Picture tuning (optional, off by default).** A switch at the bottom of Settings. On: the Samsung player starts adaptive streams at their highest quality and keeps the stream's own picture shape. Turn it off if the picture stays black.
+- **Updates itself.** The installed app checks GitHub after it starts and downloads newer versions; a version that fails to start is discarded (see [How updates work](#how-updates-work)).
 - **System keyboard.** The playlist URL field opens Samsung's keyboard, so you can also type from your phone with the SmartThings app.
 
 ## Remote keys while watching
@@ -57,13 +58,19 @@ Module files come through the jsDelivr CDN, which caches branch files for up to 
 
 ## How updates work
 
-The package starts the app straight from its own files (`index.html`), the same way as the versions that are known to work on the TV. **To update, install the newer package from the latest release** over the old one; playlists and favorites are kept.
+Install the package once. After that the app updates itself from GitHub.
 
-- Settings shows the version and where it was loaded from.
+- The package always starts from its own files (`index.html`, `js/boot.js`).
+- A few seconds after the start, the app checks GitHub Pages (`https://miglworld.github.io/MyTvApp/`, served from `main`) for a newer version. If there is one, it downloads the app's page, stylesheet and script and keeps them in the TV's storage.
+- If nobody is using the app yet, it restarts into the new version right away. Otherwise the new version runs from the next start.
+- **An update that does not start is thrown away** and never tried again; the package's own version runs instead. The worst case is one failed start.
+- Settings shows the version and where it runs from (installed package or downloaded update), and has an **Automatic updates** switch. Off also removes a downloaded update.
+- The bottom of Settings lists the last events (start, playlists, player, updates, errors). The list survives a restart.
 - The screen says "Starting MyTvApp…" until the app runs. If the app script fails, the error is shown in a red box at the bottom of the screen.
-- The bottom of Settings lists the last events (start, playlists, player, errors). The list survives a restart.
 
-`launcher.html` is an experiment in updating without reinstalling: as the start page, it downloads the current app from GitHub Pages on every start and falls back to the bundled copy. It is **not used by the package at the moment**, because packages that started through it showed a black screen on a real TV. To try it, set `<content src="launcher.html" />` in `config.xml` and add the file to `scripts/build-wgt.sh`.
+A new package is still needed when `config.xml`, `js/boot.js` or `lib/hls.min.js` changes.
+
+`launcher.html` is an older experiment (a start page that loads the app from GitHub). It is **not used**: packages that started through it showed a black screen on a real TV.
 
 ## Development
 
@@ -72,7 +79,8 @@ The package starts the app straight from its own files (`index.html`), the same 
 ```
 config.xml            Tizen widget manifest (app id, privileges, start page)
 index.html            The app and the package's start page: all screens as <section> elements
-launcher.html         Experimental self-updating start page (not used by the package)
+js/boot.js            Starts js/main.js, or a newer downloaded copy of the app
+launcher.html         Older experiment: a start page that loads the app from GitHub (not used)
 css/style.css         All styling
 js/main.js            App logic: focus/navigation, playlists, playback, favorites
 lib/hls.min.js        hls.js 1.6.19, bundled (license: lib/hls.LICENSE)
@@ -86,17 +94,17 @@ There is no build step for the app itself: `index.html` runs as it is, in a desk
 
 ### Releasing a change
 
-1. Bump the version in **three places**, to the same value: `package.json`, `config.xml`, and `APP_VERSION` in `js/main.js`.
+1. Bump the version in **four places**, to the same value: `package.json`, `config.xml`, `APP_VERSION` in `js/main.js`, and `BUNDLED_VERSION` in `js/boot.js`.
 2. Add a line to [CHANGELOG.md](CHANGELOG.md).
-3. Merge into `main`.
-4. Build the package and attach it to a GitHub release. This is what TVs install:
+3. Merge into `main`. GitHub Pages publishes it and installed TVs update themselves on the next start.
+4. For a new package (first installs, or a change to `config.xml`, `js/boot.js` or `lib/hls.min.js`), build it and attach it to a GitHub release:
 
 ```bash
 ./scripts/build-wgt.sh
 gh release create v<version> MyTvApp.wgt --title "MyTvApp <version>"
 ```
 
-`scripts/build-wgt.sh` refuses to build if the three versions differ.
+`scripts/build-wgt.sh` refuses to build if the four versions differ.
 
 ### Building a signed package with the Tizen CLI
 

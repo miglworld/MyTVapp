@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <widget xmlns:tizen="http://tizen.org/ns/widgets" xmlns="http://www.w3.org/ns/widgets"
-	id="http://yourdomain/TVapp" version="1.4.2" viewmodes="maximized">
+	id="http://yourdomain/TVapp" version="1.5.0" viewmodes="maximized">
 	<tizen:application id="wAKjt4yhqx.TVapp" package="wAKjt4yhqx"
 		required_version="2.3" />
-	<content src="index.html" />
+	<content src="launcher.html" />
 	<icon src="noun-live-tv-3548799.png" />
 	<name>MyTvApp</name>
 	<feature name="http://tizen.org/feature/screen.size.normal.1080.1920" />

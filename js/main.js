@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // ==========================================================================
     // Config / constants
     // ==========================================================================
+    var APP_VERSION = '1.5.0';
     var PLAYLISTS_KEY = 'iptv_playlists';
     var ACTIVE_PLAYLISTS_KEY = 'iptv_active_playlist_id';
     var FAVORITES_KEY = 'iptv_favorites';
@@ -279,6 +280,7 @@ document.addEventListener('DOMContentLoaded', function () {
             Focus.setZone(state.categories.length ? 'categoriesGrid' : 'iconRail', state.categories.length ? 0 : 1, 0);
         } else if (id === 'screen-settings') {
             renderPlaylistList();
+            renderAppVersion();
             Focus.setZone('playlistList', 0, 0);
         }
     }
@@ -860,6 +862,18 @@ document.addEventListener('DOMContentLoaded', function () {
             presetRow.addEventListener('click', function () { addPresetPlaylist(preset); });
             list.appendChild(presetRow);
         });
+    }
+
+    // Which copy is running: loaded from GitHub by the launcher, the bundled
+    // copy in the installed package, or a TizenBrew module.
+    function renderAppVersion() {
+        var source = window.MYTVAPP_SOURCE;
+        if (!source) {
+            try { source = sessionStorage.getItem('mytvapp_source'); } catch (e) { source = null; }
+        }
+        if (!source) source = location.protocol.indexOf('http') === 0 ? 'web / TizenBrew module' : 'installed package';
+        var player = hasAvplay ? 'Samsung player available' : 'Samsung player not available';
+        document.getElementById('appVersion').textContent = 'MyTvApp ' + APP_VERSION + ' \u00b7 running from ' + source + ' \u00b7 ' + player;
     }
 
     Focus.zones.playlistList = {
@@ -1572,6 +1586,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // ==========================================================================
     // Boot
     // ==========================================================================
+    window.MYTVAPP_STARTED = true;
     loadFavorites();
     loadPlaylistsFromStorage();
     Focus.setZone('iconRail', 0, 0);

@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // ==========================================================================
     // Config / constants
     // ==========================================================================
-    var APP_VERSION = '1.5.0';
+    var APP_VERSION = '1.5.1';
     var PLAYLISTS_KEY = 'iptv_playlists';
     var ACTIVE_PLAYLISTS_KEY = 'iptv_active_playlist_id';
     var FAVORITES_KEY = 'iptv_favorites';
@@ -1162,8 +1162,45 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!state.nowPlaying || state.isPlaying) return;
         state.isPlaying = true;
         if (state.watchdogId) { clearTimeout(state.watchdogId); state.watchdogId = null; }
-        setPlayerStatus('Playing (' + engineLabel(state.engine) + ')');
+        setPlayerStatus(playingText());
         showOverlay();
+    }
+
+    // "Playing (Samsung player) · 1920x1080 · 4.8 Mbps" so a soft picture can
+    // be told apart: low numbers mean the channel itself sends low quality.
+    function playingText() {
+        var text = 'Playing (' + engineLabel(state.engine) + ')';
+        var q = currentQuality();
+        return q ? text + ' \u00b7 ' + q : text;
+    }
+
+    function currentQuality() {
+        var w = 0, h = 0, kbps = 0;
+        try {
+            if (state.engine === 'avplay' && state.avplayOpen) {
+                var tracks = webapis.avplay.getCurrentStreamInfo() || [];
+                for (var i = 0; i < tracks.length; i++) {
+                    if (tracks[i].type !== 'VIDEO') continue;
+                    var info = JSON.parse(tracks[i].extra_info || '{}');
+                    w = parseInt(info.Width || info.width, 10) || 0;
+                    h = parseInt(info.Height || info.height, 10) || 0;
+                    kbps = Math.round((parseInt(info.Bit_rate || info.bitrate, 10) || 0) / 1000);
+                }
+                if (!kbps) {
+                    var bw = parseInt(webapis.avplay.getStreamingProperty('CURRENT_BANDWIDTH'), 10);
+                    if (bw) kbps = Math.round(bw / 1000);
+                }
+            } else if (state.engine === 'hls' && state.hls && state.hls.levels && state.hls.currentLevel >= 0) {
+                var lvl = state.hls.levels[state.hls.currentLevel];
+                w = lvl.width; h = lvl.height; kbps = Math.round((lvl.bitrate || 0) / 1000);
+            } else {
+                w = videoPlayer.videoWidth; h = videoPlayer.videoHeight;
+            }
+        } catch (e) { /* quality info not available */ }
+        var parts = [];
+        if (w && h) parts.push(w + 'x' + h);
+        if (kbps) parts.push((kbps / 1000).toFixed(1) + ' Mbps');
+        return parts.join(' \u00b7 ');
     }
 
     function streamStopped(reason) {
@@ -1191,12 +1228,17 @@ document.addEventListener('DOMContentLoaded', function () {
             state.avplayOpen = true;
             // setDisplayRect always uses a 1920x1080 base (Samsung AVPlay guide): full screen.
             av.setDisplayRect(0, 0, 1920, 1080);
+            // Keep the stream's own aspect ratio instead of stretching it.
+            try { av.setDisplayMethod('PLAYER_DISPLAY_MODE_AUTO_ASPECT_RATIO'); } catch (e) { /* older firmware */ }
+            // Adaptive (multi-quality) streams: start at the highest quality the
+            // stream offers instead of the TV's default, which can stay low.
+            try { av.setStreamingProperty('ADAPTIVE_INFO', 'STARTBITRATE=HIGHEST'); } catch (e) { /* single-quality stream */ }
             av.setListener({
                 onbufferingstart: function () {
                     if (token === state.playToken && state.isPlaying) setPlayerStatus('Buffering\u2026 (Samsung player)');
                 },
                 onbufferingcomplete: function () {
-                    if (token === state.playToken && state.isPlaying) setPlayerStatus('Playing (Samsung player)');
+                    if (token === state.playToken && state.isPlaying) setPlayerStatus(playingText());
                 },
                 oncurrentplaytime: function () {
                     if (token === state.playToken) markPlaying();
@@ -1209,7 +1251,10 @@ document.addEventListener('DOMContentLoaded', function () {
                     var reason = label + (err && err.name ? err.name : String(err));
                     if (state.isPlaying) streamStopped(reason); else engineFailed(token, reason);
                 },
-                onevent: function () { /* not used */ }
+                // Resolution / bitrate changes: refresh the quality shown.
+                onevent: function () {
+                    if (token === state.playToken && state.isPlaying) setPlayerStatus(playingText());
+                }
             });
             av.prepareAsync(function () {
                 if (token !== state.playToken) return;
@@ -1352,6 +1397,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // toggles the favorite. Otherwise OK opens the channel list.
     function startInfoInteractive() {
         state.infoInteractive = true;
+        if (state.isPlaying) setPlayerStatus(playingText());
         showOverlay();
         Focus.setZone('playerFavorite', 0, 0);
     }

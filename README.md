@@ -16,6 +16,7 @@ MyTvApp (formerly TVapp) is a Samsung Smart TV app built with Tizen Studio that 
 - **Favorites** — star any channel while watching it. Favorites persist independently of which playlists are active, but are only *shown* while their source playlist is active (deactivating a playlist hides its favorites without deleting them; deleting the playlist removes them for good).
 - **Remote-control navigation** — a custom focus-zone system drives all navigation via D-pad (arrow keys + Enter/OK) and the remote's Back key; no mouse/pointer required. Includes Channel Up/Down zapping and Play/Pause from the remote.
 - **Playback with automatic fallback** — in the installed app, Samsung's native player (**AVPlay**) is used first: it opens stream URLs itself (no CORS restrictions) and decodes HLS natively, like other Samsung IPTV apps. Then the browser's `<video>` element, then [hls.js](https://github.com/video-dev/hls.js/) (bundled, v1.6.19). If a player errors or shows no video within 12 s, the next one is tried. A status line in the player shows which player is in use and every player's error if a channel fails.
+- **Picture tuning (optional, off by default)** — a switch at the bottom of Settings. On: the Samsung player starts adaptive streams at their highest quality and keeps the stream's own picture shape. Turn it off if the picture stays black.
 - **Native text input** — the playlist URL field is a real input that opens Samsung's system keyboard, so you can also type from your phone with the SmartThings app.
 
 ## Remote keys while watching
@@ -27,7 +28,7 @@ MyTvApp (formerly TVapp) is a Samsung Smart TV app built with Tizen Studio that 
 | Left, PRE-CH | Previous channel you watched |
 | Right, INFO | Info bar with the Favorite button (OK toggles it) |
 | 0-9 | Jump to a channel number (after 2 s, or press OK) |
-| Back | Close the panel/info bar, then leave the player |
+| Back | Close the panel/info bar, then leave the player (back to the channel grid you came from) |
 
 In the channel list: Up/Down move, CH+/CH- page, OK plays, Back closes. On startup the app reopens the last channel you watched.
 
@@ -66,12 +67,13 @@ This produces `.buildResult/MyTvApp.wgt`.
 
 ## Which install to use
 
-Install the `.wgt` **once**. It contains a small launcher (`launcher.html`) that, on every start, downloads the current app from GitHub Pages (`https://miglworld.github.io/MyTvApp/`, built from `main`) and runs it inside the installed app, so Samsung's AVPlay player keeps working. Merging a pull request into `main` is therefore all it takes to update the TV; no new `.wgt` is needed.
+Install the `.wgt` **once**. It contains a small launcher (`launcher.html`) that, on every start, downloads the current app from GitHub Pages (`https://miglworld.github.io/MyTvApp/`, built from `main`) and builds it inside its own page (stylesheet, markup, then the scripts in order), so Samsung's AVPlay player keeps working. Merging a pull request into `main` is therefore all it takes to update the TV; no new `.wgt` is needed.
 
 - If GitHub cannot be reached within 5 s, or the downloaded app does not start within 10 s, the launcher starts the copy bundled in the package.
 - Settings shows the version and where it was loaded from (GitHub or bundled copy).
 - `package.json` `version` is the cache key: **bump it with every change**, or TVs keep the cached files.
-- A new `.wgt` is only needed when `launcher.html` or `config.xml` changes.
+- A new `.wgt` is only needed when `launcher.html` or `config.xml` changes. **1.5.2 changed the launcher** (it no longer uses `document.write()`), so reinstall the `.wgt` once to get it; the older launcher keeps working with newer app versions.
+- If the app script fails, the error is shown in a red box at the bottom of the screen instead of a blank screen. While the script has not started, the screen says "Starting MyTvApp…".
 
 A TizenBrew module (below) runs as a plain web page without Samsung's TV APIs, so it only has the browser players, which most free IPTV servers block. Use it only to test the interface.
 

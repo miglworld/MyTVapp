@@ -6,9 +6,29 @@
 <link rel="stylesheet" type="text/css" href="css/style.css">
 <!-- Samsung TV Web API (AVPlay). Only resolves inside an installed .wgt; harmless elsewhere. -->
 <script type="text/javascript" src="$WEBAPIS/webapis/webapis.js"></script>
+<script>
+// A TV has no console to look at: show script errors on the screen.
+window.MYTVAPP_ERROR = function (text) {
+	var box = document.getElementById('errorBox');
+	if (!box) {
+		box = document.createElement('div');
+		box.id = 'errorBox';
+		box.style.cssText = 'position:fixed;left:40px;right:40px;bottom:40px;z-index:5000;padding:16px 24px;' +
+			'font:22px Arial,sans-serif;color:#fff;background:#7a1020;border-radius:8px;word-break:break-all';
+		(document.body || document.documentElement).appendChild(box);
+	}
+	box.textContent = 'MyTvApp error: ' + text;
+};
+window.onerror = function (msg, file, line) {
+	window.MYTVAPP_ERROR(msg + ' (' + String(file || '').split('/').pop().split('?')[0] + ':' + (line || 0) + ')');
+};
+</script>
 </head>
 <body>
 	<div id="app">
+
+		<!-- Shown until the app script has started (it removes this). -->
+		<div id="bootMsg">Starting MyTvApp&hellip;</div>
 
 		<!-- ===================== Left icon rail ===================== -->
 		<nav class="icon-rail">
@@ -50,11 +70,6 @@
 					<h2 class="row-title">Favorites</h2>
 					<div class="tile-row" id="favoritesRow"></div>
 				</section>
-
-				<div class="loading-indicator" id="loadingIndicator" hidden>
-					<div class="spinner"></div>
-					<p>Loading playlist&hellip;</p>
-				</div>
 			</section>
 
 			<!-- ===================== Categories browse screen ===================== -->
@@ -118,10 +133,17 @@
 					<div class="channel-panel-hint">OK play &nbsp;&middot;&nbsp; CH+/CH&minus; page &nbsp;&middot;&nbsp; Back close</div>
 				</div>
 				<div class="number-entry" id="numberEntry" hidden></div>
-				<div class="toast" id="toast"></div>
 			</section>
 
 		</div>
+
+		<!-- Shown over every screen (they used to sit inside one screen and
+		     were invisible on the others). -->
+		<div class="loading-indicator" id="loadingIndicator" hidden>
+			<div class="spinner"></div>
+			<p>Loading playlist&hellip;</p>
+		</div>
+		<div class="toast" id="toast"></div>
 
 		<!-- ===================== Confirm Dialog ===================== -->
 		<div class="modal-overlay" id="confirmModal" hidden>

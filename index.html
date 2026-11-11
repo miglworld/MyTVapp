@@ -32,7 +32,7 @@ window.onerror = function (msg, file, line) {
 
 		<!-- ===================== Side menu ===================== -->
 		<nav class="sidebar" id="sidebar">
-			<div class="brand">MyTvApp</div>
+			<div class="brand"><span class="brand-name">MyTvApp</span><span class="live-clock" id="liveClock"></span></div>
 			<button class="menu-item" id="navLive" tabindex="-1">
 				<svg class="menu-icon" viewBox="0 0 24 24" width="28" height="28">
 					<path fill="currentColor" d="M8.3 2.3 12 6l3.7-3.7 1.4 1.4L14.8 6H20a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5.2L6.9 3.7zM4 8v11h16V8z" /></svg>
@@ -63,24 +63,14 @@ window.onerror = function (msg, file, line) {
 					</div>
 					<div class="live-list" id="liveList"></div>
 				</div>
-				<div class="live-right">
-					<!-- The picture is drawn into this box (see placeVideo in js/main.js). -->
-					<div class="preview-box" id="previewBox"><span class="preview-hint" id="previewHint">Preview</span></div>
-					<div class="live-info">
-						<div class="live-info-top">
-							<div class="live-info-logo" id="liveInfoLogo"></div>
-							<div class="live-info-text">
-								<div class="live-info-name"><span class="live-info-number" id="liveInfoNumber"></span><span id="liveInfoName"></span></div>
-								<div class="live-info-group" id="liveInfoGroup"></div>
-							</div>
-							<div class="live-info-side">
-								<div class="live-clock" id="liveClock"></div>
-								<div class="live-badges"><span class="badge-fav" id="liveInfoFav" hidden>&#9733; Favorite</span><span class="badge-live" id="liveInfoLive" hidden>LIVE</span></div>
-							</div>
-						</div>
-						<div class="live-status" id="liveStatus"></div>
-						<div class="live-keys">OK full screen &nbsp;&middot;&nbsp; &#9654; favorite &nbsp;&middot;&nbsp; &#9664; menu &nbsp;&middot;&nbsp; CH+/CH&minus; page</div>
-					</div>
+				<!-- The channel plays behind the whole screen; this is its caption. -->
+				<div class="live-scrim"></div>
+				<div class="live-info">
+					<div class="live-badges"><span class="badge-live" id="liveInfoLive" hidden>LIVE</span><span class="badge-fav" id="liveInfoFav" hidden>&#9733; Favorite</span></div>
+					<div class="live-info-name"><span class="live-info-number" id="liveInfoNumber"></span><span id="liveInfoName"></span></div>
+					<div class="live-info-group" id="liveInfoGroup"></div>
+					<div class="live-status" id="liveStatus"></div>
+					<div class="live-keys">OK full screen &nbsp;&middot;&nbsp; &#9654; favorite &nbsp;&middot;&nbsp; &#9664; menu</div>
 				</div>
 			</section>
 

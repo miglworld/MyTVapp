@@ -21,7 +21,7 @@
     // ==========================================================================
     // Config / constants
     // ==========================================================================
-    var APP_VERSION = '0.11.0';
+    var APP_VERSION = '0.11.1';
     var PLAYLISTS_KEY = 'iptv_playlists';
     var ACTIVE_PLAYLISTS_KEY = 'iptv_active_playlist_id';
     var FAVORITES_KEY = 'iptv_favorites';
@@ -601,7 +601,7 @@
         updateLiveInfo();
     }
 
-    // Details of the channel the list is on, under the preview window.
+    // Caption of the channel the list is on, over the picture.
     function updateLiveInfo() {
         var ch = state.liveList[state.liveIndex] || null;
         var isCurrent = !!(ch && state.nowPlaying && state.nowPlaying.url === ch.url);
@@ -611,11 +611,9 @@
         if (ch && ch.group) parts.push(ch.group);
         if (ch && ch.playlistName) parts.push(ch.playlistName);
         document.getElementById('liveInfoGroup').textContent = parts.join(' · ');
-        document.getElementById('liveInfoLogo').style.backgroundImage = ch && ch.logo ? ('url(' + JSON.stringify(ch.logo) + ')') : '';
         document.getElementById('liveInfoFav').hidden = !(ch && isFavorited(ch));
         document.getElementById('liveInfoLive').hidden = !(isCurrent && state.isPlaying);
         document.getElementById('liveStatus').textContent = isCurrent ? state.statusText : '';
-        document.getElementById('previewHint').hidden = !!state.nowPlaying;
     }
 
     function updateClock() {
@@ -1543,46 +1541,16 @@
     });
 
     // ==========================================================================
-    // Playing a channel. One playback serves both views: the preview window on
-    // the Live TV screen and the full-screen player. Switching between them
-    // only moves the picture; the stream is not restarted.
+    // Playing a channel. One playback serves both views: behind the Live TV
+    // screen, and full screen. Switching between them only shows or hides the
+    // menu and the list; the stream is not restarted and the picture never moves.
     // ==========================================================================
 
-    // Where the picture goes, in page pixels: the whole screen, or the preview box.
-    function videoRect() {
-        if (state.fullscreen) return { x: 0, y: 0, w: 1920, h: 1080 };
-        var r = document.getElementById('previewBox').getBoundingClientRect();
-        return { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) };
-    }
-
-    // The Samsung player always counts in a 1920x1080 screen.
-    function avplayRect() {
-        var r = videoRect();
-        var k = 1920 / (window.innerWidth || 1920);
-        return { x: Math.round(r.x * k), y: Math.round(r.y * k), w: Math.round(r.w * k), h: Math.round(r.h * k) };
-    }
-
+    // The picture is always full size. On the Live TV screen it lies under
+    // the menu and the channel list (class "preview"); full screen it is on
+    // top with the player's own overlays.
     function placeVideo() {
-        var box = document.getElementById('screen-player');
-        if (state.fullscreen) {
-            box.classList.remove('preview');
-            box.style.left = box.style.top = box.style.width = box.style.height = '';
-        } else {
-            var r = videoRect();
-            box.classList.add('preview');
-            box.style.left = r.x + 'px';
-            box.style.top = r.y + 'px';
-            box.style.width = r.w + 'px';
-            box.style.height = r.h + 'px';
-        }
-        if (state.avplayOpen) {
-            try {
-                var a = avplayRect();
-                webapis.avplay.setDisplayRect(a.x, a.y, a.w, a.h);
-            } catch (e) {
-                logEvent('moving the picture failed: ' + ((e && e.name) || e));
-            }
-        }
+        document.getElementById('screen-player').classList.toggle('preview', !state.fullscreen);
     }
 
     // Starts a channel in the view that is showing.
@@ -1911,9 +1879,8 @@
         try {
             av.open(ch.url);
             state.avplayOpen = true;
-            // Full screen, or the preview window on the Live TV screen.
-            var area = avplayRect();
-            av.setDisplayRect(area.x, area.y, area.w, area.h);
+            // setDisplayRect always uses a 1920x1080 base (Samsung AVPlay guide): full screen.
+            av.setDisplayRect(0, 0, 1920, 1080);
             // Picture tuning (optional): adaptive streams start at the highest
             // quality the stream offers instead of the TV's default.
             if (pictureTuning) {

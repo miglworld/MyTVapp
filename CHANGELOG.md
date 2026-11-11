@@ -2,10 +2,10 @@
 
 MyTvApp's own history starts at v0.1. Newest first. Each entry also names the version number the app showed at the time.
 
-## v0.11.0 (in testing on the `dev` branch)
-- New Live TV screen in place of the home, categories and channel grid screens: side menu with every category, numbered channel list, preview window with channel details.
-- One playback for preview and full screen: OK makes the preview full screen and Back shrinks it again, without restarting the stream.
-- New colours and focus style.
+## v0.11 (in testing on the `dev` branch)
+- New Live TV screen in place of the home, categories and channel grid screens: the channel plays behind the whole screen, with a floating side menu (every category) and a floating numbered channel list over it, and the channel's caption at the bottom.
+- One playback for browsing and full screen: OK hides the panels, Back shows them again, and the stream is not restarted.
+- New minimal look: black base, rounded panels, a light pill for the focused item, no gradients or outlines.
 
 ## v0.10.1 (2026-11-11)
 Security review.

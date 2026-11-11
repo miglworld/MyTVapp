@@ -14,7 +14,7 @@
 html, body {
 	width: 1920px;
 	height: 1080px;
-	background: #070812;
+	background: #000000;
 	color: #ffffff;
 	font-family: 'Samsung One', 'Noto Sans', Arial, sans-serif;
 	overflow: hidden;
@@ -36,53 +36,68 @@ button {
 }
 
 /* ==========================================================================
-   Focus
+   Focus: one look everywhere. The focused control becomes a light pill with
+   dark text and lifts slightly.
    ========================================================================== */
 .focused {
-	outline: 3px solid #ffffff;
-	box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
-	transform: scale(1.06);
+	background: #f5f5f7 !important;
+	color: #000000 !important;
+	outline: none;
+	box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
+	transform: scale(1.02);
 	z-index: 2;
 }
 
-.favorite-btn.focused {
-	transform: scale(1.06);
+.focused * {
+	color: #000000 !important;
 }
 
 /* ==========================================================================
-   Side menu
+   Side menu: a floating rounded panel.
    ========================================================================== */
 .sidebar {
+	position: relative;
+	z-index: 3;
 	width: 300px;
-	height: 100%;
-	background: #0b0d1c;
-	border-right: 1px solid #171a33;
+	margin: 28px 0 28px 28px;
+	border-radius: 28px;
+	background: rgba(22, 22, 24, 0.88);
 	display: flex;
 	flex-direction: column;
-	padding: 34px 18px 26px;
+	padding: 26px 16px 18px;
 	flex-shrink: 0;
 }
 
 .brand {
-	font-size: 30px;
-	font-weight: 700;
-	letter-spacing: 0.5px;
-	color: #ffffff;
-	padding: 0 14px 26px;
+	display: flex;
+	align-items: baseline;
+	padding: 4px 16px 24px;
+}
+
+.brand-name {
+	flex: 1;
+	font-size: 24px;
+	font-weight: 600;
+	color: #f5f5f7;
+}
+
+.live-clock {
+	font-size: 20px;
+	color: #8e8e93;
 }
 
 .menu-item {
 	display: flex;
 	align-items: center;
 	width: 100%;
-	height: 62px;
+	height: 58px;
 	flex-shrink: 0;
-	padding: 0 14px;
-	margin-bottom: 6px;
-	border-radius: 12px;
-	font-size: 23px;
+	padding: 0 16px;
+	margin-bottom: 4px;
+	border-radius: 14px;
+	font-size: 22px;
 	text-align: left;
-	color: #9aa0c3;
+	color: #c7c7cc;
 }
 
 .menu-icon {
@@ -100,52 +115,38 @@ button {
 .menu-count {
 	flex-shrink: 0;
 	margin-left: 10px;
-	font-size: 17px;
-	color: #5d6388;
+	font-size: 16px;
+	color: #636366;
 }
 
-/* The section that is showing. */
+/* The section that is showing, while the remote is elsewhere. */
 .menu-item.active {
 	color: #ffffff;
-	background: #1a1e3d;
+	background: rgba(255, 255, 255, 0.1);
 }
 
 .menu-item.focused {
-	color: #ffffff;
-	background: #4f5bff;
-	background: linear-gradient(90deg, #4f5bff, #7a4dff);
-	outline: none;
-	box-shadow: none;
 	transform: none;
-}
-
-.menu-item.focused .menu-count {
-	color: #dfe2ff;
+	box-shadow: none;
 }
 
 .menu-scroll {
 	flex: 1;
 	min-height: 0;
 	overflow: hidden;
-	margin: 10px 0;
-	padding-top: 10px;
-	border-top: 1px solid #171a33;
-	border-bottom: 1px solid #171a33;
+	margin: 14px 0;
 }
 
 .menu-scroll .menu-item {
-	height: 54px;
-	font-size: 21px;
-	padding-left: 18px;
+	height: 52px;
+	font-size: 20px;
 }
 
 .menu-header {
 	font-size: 15px;
 	font-weight: 600;
-	letter-spacing: 1px;
-	text-transform: uppercase;
-	color: #5d6388;
-	padding: 12px 18px 8px;
+	color: #636366;
+	padding: 14px 16px 8px;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -179,48 +180,51 @@ button {
 }
 
 .page-title {
-	font-size: 40px;
-	font-weight: 600;
+	font-size: 44px;
+	font-weight: 700;
 	margin-bottom: 32px;
 }
 
 .empty-hint {
 	font-size: 21px;
-	color: #5d6388;
-	padding: 24px 28px;
+	color: #8e8e93;
+	padding: 24px 22px;
 }
 
 /* ==========================================================================
-   Live TV screen: channel list (left), preview and channel info (right).
-   Fixed sizes: 1920 - 300 (menu) = 1620 = 580 (list) + 1040 (right).
-   While the Samsung player is on, the picture is drawn BEHIND the page, so
-   every part here has its own solid background except the preview box.
+   Live TV screen. The channel the list rests on plays behind the whole
+   screen (see "#screen-player.preview" below). Over it float the channel
+   list, as a second rounded panel, and the channel's caption.
    ========================================================================== */
-#screen-live.active {
-	display: flex;
+#screen-live {
+	z-index: 2;
 }
 
 .live-channels {
-	width: 580px;
-	height: 100%;
-	flex-shrink: 0;
+	position: absolute;
+	z-index: 1;
+	top: 28px;
+	bottom: 28px;
+	left: 20px;
+	width: 540px;
 	display: flex;
 	flex-direction: column;
-	background: #0e1022;
-	border-right: 1px solid #171a33;
+	border-radius: 28px;
+	background: rgba(22, 22, 24, 0.88);
 }
 
 .live-head {
 	display: flex;
 	align-items: baseline;
-	padding: 40px 30px 22px;
+	padding: 30px 30px 18px;
 	flex-shrink: 0;
 }
 
 .live-title {
 	flex: 1;
-	font-size: 34px;
-	font-weight: 600;
+	font-size: 32px;
+	font-weight: 700;
+	color: #f5f5f7;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -229,8 +233,8 @@ button {
 .live-count {
 	flex-shrink: 0;
 	margin-left: 14px;
-	font-size: 18px;
-	color: #5d6388;
+	font-size: 17px;
+	color: #636366;
 }
 
 .live-list {
@@ -240,22 +244,23 @@ button {
 	padding: 0 14px;
 }
 
+/* 76 + 8 = 84 px per row: LIVE_ROW_H in js/main.js. */
 .live-row {
 	display: flex;
 	align-items: center;
 	height: 76px;
 	margin-bottom: 8px;
 	padding: 0 16px;
-	border-radius: 12px;
-	font-size: 24px;
-	color: #b9bedd;
+	border-radius: 16px;
+	font-size: 23px;
+	color: #c7c7cc;
 }
 
 .live-row .live-num {
-	width: 66px;
+	width: 60px;
 	flex-shrink: 0;
-	font-size: 20px;
-	color: #6c75ad;
+	font-size: 18px;
+	color: #636366;
 }
 
 .live-row .live-logo {
@@ -263,13 +268,13 @@ button {
 	height: 44px;
 	flex-shrink: 0;
 	margin-right: 18px;
-	border-radius: 6px;
-	background: #181b36 center / contain no-repeat;
+	border-radius: 8px;
+	background: rgba(255, 255, 255, 0.06) center / contain no-repeat;
 	text-align: center;
 	line-height: 44px;
 	font-size: 20px;
 	font-weight: 600;
-	color: #5d6388;
+	color: #8e8e93;
 }
 
 .live-row .live-name {
@@ -281,153 +286,75 @@ button {
 
 .live-row .live-mark {
 	flex-shrink: 0;
-	margin-left: 10px;
-	font-size: 18px;
-	color: #ffd23f;
+	margin-left: 12px;
+	font-size: 16px;
+	color: #8e8e93;
 }
 
+/* A small red dot: this is the channel that is playing. */
 .live-row .live-playing {
 	flex-shrink: 0;
-	margin-left: 10px;
-	font-size: 14px;
-	font-weight: 700;
-	letter-spacing: 1px;
-	color: #7f8cff;
+	width: 8px;
+	height: 8px;
+	margin-left: 12px;
+	border-radius: 50%;
+	background: #ff453a;
+	font-size: 0;
 }
 
 /* The channel the list is on, while the remote is in the menu. */
 .live-row.selected {
-	background: #1a1e3d;
+	background: rgba(255, 255, 255, 0.1);
 	color: #ffffff;
 }
 
 .live-row.focused {
-	background: #4f5bff;
-	background: linear-gradient(90deg, #4f5bff, #7a4dff);
-	color: #ffffff;
-	outline: none;
 	box-shadow: none;
-	transform: none;
 }
 
-.live-row.focused .live-num,
 .live-row.focused .live-playing {
-	color: #dfe2ff;
+	background: #ff453a;
 }
 
-.live-right {
-	width: 1040px;
-	height: 100%;
-	flex-shrink: 0;
-	padding: 36px 36px 0;
-}
-
-/* 968 x 544: a 16:9 window. */
-.preview-box {
-	position: relative;
-	width: 968px;
-	height: 544px;
-	border-radius: 14px;
-	background: #000000;
-	overflow: hidden;
-}
-
-.preview-hint {
+/* Darkens the lower part of the picture so the caption stays readable. */
+.live-scrim {
 	position: absolute;
+	z-index: 0;
 	left: 0;
 	right: 0;
-	top: 50%;
-	margin-top: -16px;
-	text-align: center;
-	font-size: 24px;
-	color: #2b2f55;
+	bottom: 0;
+	height: 460px;
+	background: linear-gradient(0deg, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.55) 45%, rgba(0, 0, 0, 0) 100%);
 }
 
 .live-info {
-	width: 968px;
-	margin-top: 28px;
-	padding: 28px 32px;
-	border-radius: 14px;
-	background: #0e1022;
-}
-
-.live-info-top {
-	display: flex;
-	align-items: center;
-}
-
-.live-info-logo {
-	width: 110px;
-	height: 76px;
-	flex-shrink: 0;
-	margin-right: 26px;
-	border-radius: 10px;
-	background: #181b36 center / contain no-repeat;
-}
-
-.live-info-text {
-	flex: 1;
-	min-width: 0;
-}
-
-.live-info-name {
-	font-size: 40px;
-	font-weight: 600;
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-}
-
-.live-info-number {
-	color: #7f8cff;
-	margin-right: 16px;
-}
-
-.live-info-group {
-	margin-top: 6px;
-	font-size: 22px;
-	color: #8a90b8;
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-}
-
-.live-info-side {
-	flex-shrink: 0;
-	margin-left: 24px;
-	text-align: right;
-}
-
-.live-clock {
-	font-size: 34px;
-	font-weight: 600;
-	color: #ffffff;
+	position: absolute;
+	z-index: 1;
+	left: 620px;
+	right: 64px;
+	bottom: 56px;
 }
 
 .live-badges {
-	margin-top: 8px;
-	height: 30px;
+	height: 26px;
+	margin-bottom: 10px;
 }
 
 .badge-live,
 .badge-fav {
 	display: inline-block;
-	margin-left: 10px;
-	padding: 4px 12px;
-	border-radius: 6px;
-	font-size: 16px;
-	font-weight: 700;
-	letter-spacing: 1px;
+	margin-right: 18px;
+	font-size: 17px;
+	font-weight: 600;
+	letter-spacing: 1.5px;
 }
 
 .badge-live {
-	background: #7a4dff;
-	color: #ffffff;
+	color: #ff453a;
 }
 
 .badge-fav {
-	background: #2a2540;
-	color: #ffd23f;
+	color: #c7c7cc;
 }
 
 .badge-live[hidden],
@@ -435,17 +362,41 @@ button {
 	display: none;
 }
 
+.live-info-name {
+	font-size: 64px;
+	font-weight: 700;
+	line-height: 1.1;
+	color: #ffffff;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.live-info-number {
+	color: rgba(255, 255, 255, 0.45);
+	margin-right: 20px;
+}
+
+.live-info-group {
+	margin-top: 10px;
+	font-size: 24px;
+	color: #c7c7cc;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
 .live-status {
-	min-height: 28px;
-	margin-top: 22px;
-	font-size: 21px;
-	color: #9fb8e8;
+	min-height: 26px;
+	margin-top: 14px;
+	font-size: 20px;
+	color: #8e8e93;
 }
 
 .live-keys {
 	margin-top: 18px;
-	font-size: 19px;
-	color: #5d6388;
+	font-size: 18px;
+	color: rgba(255, 255, 255, 0.35);
 }
 
 .loading-indicator {
@@ -455,7 +406,7 @@ button {
 	transform: translate(-50%, -50%);
 	text-align: center;
 	font-size: 26px;
-	color: #a8a8a8;
+	color: #8e8e93;
 	background: rgba(8, 8, 8, 0.85);
 	padding: 28px 44px;
 	border-radius: 12px;
@@ -474,7 +425,7 @@ button {
 	left: 50%;
 	transform: translate(-50%, -50%);
 	font-size: 28px;
-	color: #8a8a8a;
+	color: #8e8e93;
 }
 
 .spinner {
@@ -496,13 +447,13 @@ button {
    ========================================================================== */
 .app-version {
 	font-size: 18px;
-	color: #5a5a5a;
+	color: #636366;
 	margin-top: 36px;
 }
 
 .settings-hint {
 	font-size: 20px;
-	color: #6c6c6c;
+	color: #8e8e93;
 	margin-bottom: 32px;
 	margin-top: -20px;
 }
@@ -522,14 +473,14 @@ button {
 	display: flex;
 	align-items: center;
 	text-align: left;
-	background: #0d0d0d;
-	border: 1px solid #1e1e1e;
-	border-radius: 10px;
+	background: #161618;
+	border: 1px solid transparent;
+	border-radius: 14px;
 	padding: 20px 24px;
 }
 
 .playlist-row.active {
-	border-color: #4d4d4d;
+	border-color: #48484a;
 }
 
 .playlist-checkbox {
@@ -537,7 +488,7 @@ button {
 	width: 28px;
 	height: 28px;
 	margin-right: 20px;
-	border: 2px solid #4d4d4d;
+	border: 2px solid #48484a;
 	border-radius: 6px;
 	display: flex;
 	align-items: center;
@@ -548,8 +499,19 @@ button {
 }
 
 .playlist-checkbox.checked {
-	background: #1c5ea8;
-	border-color: #1c5ea8;
+	background: #f5f5f7;
+	border-color: #f5f5f7;
+	color: #000000;
+}
+
+.focused .playlist-checkbox {
+	border-color: #000000;
+}
+
+.focused .playlist-checkbox.checked {
+	background: #000000;
+	border-color: #000000;
+	color: #ffffff !important;
 }
 
 .playlist-row-text {
@@ -565,12 +527,12 @@ button {
 
 .playlist-url {
 	font-size: 16px;
-	color: #7a7a7a;
+	color: #8e8e93;
 	word-break: break-all;
 }
 
 .playlist-row.add-row {
-	color: #6c9fff;
+	color: #f5f5f7;
 	font-size: 20px;
 	text-align: center;
 	display: flex;
@@ -584,15 +546,15 @@ button {
 	flex-shrink: 0;
 	width: 100px;
 	margin-left: 16px;
-	background: #0d0d0d;
-	border: 1px solid #1e1e1e;
-	border-radius: 10px;
+	background: #161618;
+	border: 1px solid transparent;
+	border-radius: 14px;
 	font-size: 18px;
-	color: #d8d8d8;
+	color: #f5f5f7;
 }
 
 .playlist-row.option-row {
-	color: #c7c7c7;
+	color: #c7c7cc;
 	margin-top: 32px;
 }
 
@@ -608,12 +570,20 @@ button {
 	font-family: monospace;
 	font-size: 17px;
 	line-height: 1.45;
-	color: #8a8a8a;
+	color: #8e8e93;
 	margin-top: 32px;
 }
 
+/* A page of text does not turn white: an outline is enough. */
+.playlist-row.log-row.focused {
+	background: #161618 !important;
+	color: #c7c7cc !important;
+	box-shadow: 0 0 0 2px #f5f5f7;
+	transform: none;
+}
+
 .playlist-action-btn.delete {
-	color: #ff6b6b;
+	color: #ff453a;
 }
 
 /* ==========================================================================
@@ -643,7 +613,7 @@ button {
 
 .add-playlist-panel .hint {
 	font-size: 22px;
-	color: #8a8a8a;
+	color: #8e8e93;
 	margin-bottom: 28px;
 }
 
@@ -653,24 +623,25 @@ button {
 	box-sizing: border-box;
 	font-family: inherit;
 	font-size: 28px;
-	background: #0d0d0d;
-	border: 2px solid #262626;
-	border-radius: 10px;
+	background: #161618;
+	border: 2px solid #2c2c2e;
+	border-radius: 14px;
 	padding: 20px 24px;
 	margin-bottom: 18px;
-	color: #6c9fff;
+	color: #f5f5f7;
 	outline: none;
 }
 
 .url-input.focused,
 .url-input:focus {
-	border-color: #6c9fff;
-	box-shadow: 0 0 0 4px rgba(108, 159, 255, 0.35);
+	border-color: #f5f5f7;
+	box-shadow: none;
+	transform: none;
 }
 
 .input-tip {
 	font-size: 20px;
-	color: #6f6f6f;
+	color: #636366;
 	margin-bottom: 32px;
 }
 
@@ -685,16 +656,16 @@ button {
 .btn {
 	font-size: 24px;
 	padding: 16px 42px;
-	border-radius: 10px;
-	background: #0d0d0d;
-	border: 1px solid #1e1e1e;
-	color: #d8d8d8;
+	border-radius: 14px;
+	background: #161618;
+	border: 1px solid transparent;
+	color: #f5f5f7;
 }
 
 .btn.primary {
-	background: #1c5ea8;
-	border-color: #1c5ea8;
-	color: #ffffff;
+	background: #2c2c2e;
+	border-color: #2c2c2e;
+	color: #f5f5f7;
 }
 
 /* ==========================================================================
@@ -719,9 +690,9 @@ button {
 }
 
 .modal-box {
-	background: #141414;
-	border: 1px solid #262626;
-	border-radius: 10px;
+	background: #1c1c1e;
+	border: 1px solid #2c2c2e;
+	border-radius: 14px;
 	padding: 36px 42px;
 	max-width: 700px;
 	text-align: center;
@@ -730,7 +701,7 @@ button {
 .modal-box p {
 	font-size: 26px;
 	margin: 0 0 28px;
-	color: #d8d8d8;
+	color: #f5f5f7;
 }
 
 .modal-actions {
@@ -770,20 +741,16 @@ html.avplay-active #videoPlayer {
 	visibility: hidden;
 }
 
-/* Full screen with the Samsung player: the menu would cover the picture. */
-html.avplay-active.video-full .sidebar {
+/* Full screen: nothing but the picture and the player's own overlays. */
+html.video-full .sidebar {
 	visibility: hidden;
 }
 
-/* The picture as a window on the Live TV screen. js/main.js sets its place
-   and size to those of the preview box; everything but the picture is hidden. */
+/* The picture behind the Live TV screen: same full-size player, placed under
+   the menu and the channel list, with its own overlays hidden. */
 #screen-player.preview {
 	display: block;
-	right: auto;
-	bottom: auto;
-	z-index: 5;
-	border-radius: 14px;
-	overflow: hidden;
+	z-index: 0;
 }
 
 #screen-player.preview > * {
@@ -832,13 +799,13 @@ html.avplay-active.video-full .sidebar {
 
 .player-status {
 	font-size: 20px;
-	color: #9fb8e8;
+	color: #8e8e93;
 	margin-top: 8px;
 	max-width: 1100px;
 }
 
 .now-playing-number {
-	color: #6c9fff;
+	color: #f5f5f7;
 	margin-right: 14px;
 }
 
@@ -866,7 +833,7 @@ html.avplay-active.video-full .sidebar {
 	left: 0;
 	width: 680px;
 	background: rgba(8, 8, 8, 0.94);
-	border-right: 1px solid #1e1e1e;
+	border-right: 1px solid #161618;
 	display: flex;
 	flex-direction: column;
 	padding: 40px 0 24px;
@@ -897,19 +864,20 @@ html.avplay-active.video-full .sidebar {
 	height: 78px;
 	padding: 0 36px;
 	font-size: 24px;
-	color: #c8c8c8;
+	color: #c7c7cc;
 	border-left: 4px solid transparent;
 }
 
 .panel-row.focused {
-	background: #1c2b45;
-	color: #ffffff;
-	border-left-color: #6c9fff;
+	border-left-color: transparent;
+	border-radius: 14px;
+	transform: none;
+	box-shadow: none;
 }
 
 .panel-row .panel-num {
 	width: 70px;
-	color: #6c9fff;
+	color: #f5f5f7;
 	flex-shrink: 0;
 }
 
@@ -917,7 +885,7 @@ html.avplay-active.video-full .sidebar {
 	width: 64px;
 	height: 44px;
 	margin-right: 18px;
-	background: #151515 center / contain no-repeat;
+	background: #1c1c1e center / contain no-repeat;
 	border-radius: 6px;
 	flex-shrink: 0;
 }
@@ -931,14 +899,14 @@ html.avplay-active.video-full .sidebar {
 
 .panel-row .panel-playing {
 	font-size: 16px;
-	color: #6c9fff;
+	color: #f5f5f7;
 	margin-left: 12px;
 	letter-spacing: 1px;
 }
 
 .channel-panel-hint {
 	font-size: 18px;
-	color: #6f6f6f;
+	color: #636366;
 	padding: 16px 36px 0;
 }
 
@@ -953,7 +921,7 @@ html.avplay-active.video-full .sidebar {
 	text-align: center;
 	color: #ffffff;
 	background: rgba(8, 8, 8, 0.85);
-	border: 2px solid #6c9fff;
+	border: 2px solid #f5f5f7;
 	border-radius: 12px;
 	z-index: 6;
 }
@@ -971,7 +939,7 @@ html.avplay-active.video-full .sidebar {
 	width: 68px;
 	height: 68px;
 	margin-right: 22px;
-	background-color: #0d0d0d;
+	background-color: #161618;
 	background-repeat: no-repeat;
 	background-position: center;
 	background-size: contain;
@@ -985,7 +953,7 @@ html.avplay-active.video-full .sidebar {
 
 .now-playing-group {
 	font-size: 20px;
-	color: #8a8a8a;
+	color: #8e8e93;
 }
 
 .favorite-btn {
@@ -994,24 +962,24 @@ html.avplay-active.video-full .sidebar {
 	font-size: 22px;
 	padding: 16px 28px;
 	border-radius: 999px;
-	background: #141414;
-	border: 2px solid #262626;
-	color: #d8d8d8;
+	background: #1c1c1e;
+	border: 2px solid #2c2c2e;
+	color: #f5f5f7;
 	flex-shrink: 0;
 }
 
 .favorite-btn #favoriteIcon {
 	font-size: 26px;
 	margin-right: 10px;
-	color: #5a5a5a;
+	color: #636366;
 }
 
 .favorite-btn.active {
-	border-color: #ffd23f;
+	border-color: #f5f5f7;
 }
 
 .favorite-btn.active #favoriteIcon {
-	color: #ffd23f;
+	color: #f5f5f7;
 }
 
 .toast {
@@ -1020,10 +988,10 @@ html.avplay-active.video-full .sidebar {
 	bottom: 60px;
 	left: 50%;
 	transform: translateX(-50%) translateY(20px);
-	background: #141414;
-	border: 1px solid #262626;
+	background: #1c1c1e;
+	border: 1px solid #2c2c2e;
 	padding: 16px 30px;
-	border-radius: 10px;
+	border-radius: 14px;
 	font-size: 22px;
 	opacity: 0;
 	transition: opacity 0.2s, transform 0.2s;

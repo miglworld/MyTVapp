@@ -2,6 +2,13 @@
 
 MyTvApp's own history starts at v0.1. Newest first. Each entry also names the version number the app showed at the time.
 
+## v0.10.1 (2026-11-11)
+Security review.
+- Only real stream addresses (`http`, `https`, `rtmp`, `rtsp`, `rtp`, `udp`, `mms`) become channels; logos must be web addresses; playlists over 40 MB are refused.
+- The update address used for testing can only be changed on a developer's own machine.
+- Removed the unused `launcher.html`.
+- Repository: security rules and hostile-playlist tests in the checks, the bundled hls.js is verified against the official build, CodeQL scanning, `SECURITY.md`.
+
 ## v0.10.0 (2026-11-11)
 - Playlists are remembered on the TV: channels appear at once when the app opens, and stored copies older than 6 hours are refreshed in the background. "Reload playlists now" in Settings.
 - Developer mode (Settings): follow the `dev` branch to try test versions before they are merged. "Check for updates now" in Settings.

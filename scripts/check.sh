@@ -29,10 +29,31 @@ grep -q '<script src="js/boot.js"></script>' index.html || fail "index.html must
 grep -q 'window.MYTVAPP_STARTED = true' js/main.js || fail "js/main.js must set MYTVAPP_STARTED"
 if grep -q 'url(' css/style.css; then fail "css/style.css must not use url(): a downloaded update has no files next to it"; fi
 
-# 4. Tests.
+# 4. Security rules. Playlist content is untrusted, so the page is only ever
+#    filled with textContent; code is only ever run from an update.
+if grep -nE 'eval\(|new Function|document\.write|insertAdjacentHTML|outerHTML *=|setTimeout\( *["'"'"']|setInterval\( *["'"'"']' js/main.js js/boot.js; then
+	fail "forbidden call (eval, new Function, document.write, insertAdjacentHTML, outerHTML, string timers)"
+fi
+# innerHTML may only be emptied, except the one place that installs an update's markup.
+if grep -n 'innerHTML *=' js/main.js | grep -v "innerHTML = ''"; then fail "js/main.js may only set innerHTML to ''"; fi
+[ "$(grep -c 'innerHTML *=' js/boot.js)" = "1" ] || fail "js/boot.js must set innerHTML exactly once (the update's markup)"
+# Updates come from these two addresses and nowhere else.
+[ "$(grep -oE "https?://[^'\" ]+" js/boot.js | wc -l | tr -d ' ')" = "0" ] || fail "js/boot.js must not contain any address"
+for u in $(grep -oE "var UPDATE(_DEV)?_URL = '[^']+'" js/main.js | sed "s/.*= '//; s/'//"); do
+	case "$u" in
+		https://miglworld.github.io/MyTvApp/|https://raw.githubusercontent.com/miglworld/MyTvApp/dev/) ;;
+		*) fail "unexpected update address: $u" ;;
+	esac
+done
+grep -q "location.hostname === 'localhost'" js/main.js || fail "the update address override must stay limited to localhost"
+# The bundled video library is the official hls.js 1.6.19 build.
+sum=$( (shasum -a 256 lib/hls.min.js 2>/dev/null || sha256sum lib/hls.min.js) | cut -d' ' -f1)
+[ "$sum" = "72b87a6e58db623feca73ab370970c1126ec06eb3dcd0a67fd14b47b6340b820" ] || fail "lib/hls.min.js is not the official hls.js 1.6.19 build"
+
+# 5. Tests.
 node scripts/test.js || fail "tests"
 
-# 5. In a pull request: app files changed => the version must be higher than on the base branch.
+# 6. In a pull request: app files changed => the version must be higher than on the base branch.
 if [ -n "$BASE_REF" ]; then
 	changed=$(git diff --name-only "$BASE_REF"...HEAD -- index.html css js || true)
 	if [ -n "$changed" ]; then

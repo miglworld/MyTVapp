@@ -2,6 +2,11 @@
 
 MyTvApp's own history starts at v0.1. Newest first. Each entry also names the version number the app showed at the time.
 
+## v0.8.1 (2026-11-11)
+- The Samsung player is no longer asked for picture size and bitrate from inside its own callbacks, which could freeze it and leave the screen black. Picture info is read only when Right/INFO is pressed.
+- The app starts on its home screen. Reopening the last channel at start is now a switch in Settings (off by default), and it skips a channel that did not start the time before.
+- Diagnostics: the last events (start, playlists, player, errors) are listed at the bottom of Settings and survive a restart.
+
 ## v0.8 (2026-11-11)
 *First released as 1.5.2. The app now shows 0.8.0.*
 - The app's version number follows this changelog from here on: 1.5.2 became 0.8.0.

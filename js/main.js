@@ -14,12 +14,16 @@
     // ==========================================================================
     // Config / constants
     // ==========================================================================
-    var APP_VERSION = '0.8.0';
+    var APP_VERSION = '0.8.1';
     var PLAYLISTS_KEY = 'iptv_playlists';
     var ACTIVE_PLAYLISTS_KEY = 'iptv_active_playlist_id';
     var FAVORITES_KEY = 'iptv_favorites';
     var LAST_CHANNEL_KEY = 'iptv_last_channel';
     var PICTURE_TUNING_KEY = 'iptv_picture_tuning';
+    var REOPEN_LAST_KEY = 'iptv_reopen_last';
+    var REOPEN_PENDING_KEY = 'iptv_reopen_pending';
+    var LOG_KEY = 'iptv_log';
+    var LOG_LINES = 14;
     var OVERLAY_HIDE_MS = 5000;
     var TOAST_MS = 3000;
     var FETCH_TIMEOUT_MS = 15000;
@@ -79,6 +83,7 @@
         playFailed: false,
         watchdogId: null,
         avplayOpen: false,
+        quality: '',             // picture size / bitrate last read from the player
         returnTo: null,          // screen + focus to go back to when the player closes
         prevChannel: null,       // { ch, context, list } for the "previous channel" key
         lastExited: null,        // channel showing when the player was closed
@@ -95,6 +100,35 @@
     // plain player is the configuration known to show a picture on every TV.
     var pictureTuning = false;
     try { pictureTuning = localStorage.getItem(PICTURE_TUNING_KEY) === '1'; } catch (e) { pictureTuning = false; }
+
+    // Reopen the last watched channel when the app starts. Off by default:
+    // the app then always starts on its own screens, so a channel or player
+    // problem can never look like an app that does not start.
+    var reopenLast = false;
+    try { reopenLast = localStorage.getItem(REOPEN_LAST_KEY) === '1'; } catch (e) { reopenLast = false; }
+
+    // Diagnostics: a TV has no console, so the last few events are kept in
+    // storage and listed at the bottom of Settings. They survive a restart,
+    // which is what makes a freeze or a black screen explainable afterwards.
+    function readLog() {
+        try { return JSON.parse(localStorage.getItem(LOG_KEY) || '[]') || []; } catch (e) { return []; }
+    }
+    function logEvent(msg) {
+        try {
+            var d = new Date();
+            var two = function (n) { return (n < 10 ? '0' : '') + n; };
+            var lines = readLog();
+            lines.push(two(d.getHours()) + ':' + two(d.getMinutes()) + ':' + two(d.getSeconds()) + ' ' + String(msg).slice(0, 160));
+            if (lines.length > LOG_LINES) lines = lines.slice(lines.length - LOG_LINES);
+            localStorage.setItem(LOG_KEY, JSON.stringify(lines));
+        } catch (e) { /* non-fatal */ }
+    }
+    // Script errors go to the log as well as the on-screen box.
+    if (window.MYTVAPP_ERROR && !window.MYTVAPP_ERROR.logged) {
+        var showError = window.MYTVAPP_ERROR;
+        window.MYTVAPP_ERROR = function (text) { logEvent('ERROR ' + text); showError(text); };
+        window.MYTVAPP_ERROR.logged = true;
+    }
 
     var videoPlayer = document.getElementById('videoPlayer');
 
@@ -555,6 +589,7 @@
             renderHero();
             renderFavoritesRow();
             showLoading(false);
+            logEvent('playlists: ' + allChannels.length + ' channels' + (failures.length ? ', failed: ' + failures.join('; ') : ''));
             if (failures.length) showToast('Could not load ' + failures.join('; '));
             if (options.screen) switchToScreen(options.screen);
             if (options.after) options.after();
@@ -931,6 +966,29 @@
             showToast(pictureTuning ? 'Picture tuning on. If the picture goes black, turn it off' : 'Picture tuning off');
         });
         list.appendChild(tuningRow);
+
+        var reopenRow = document.createElement('button');
+        reopenRow.className = 'playlist-row add-row option-row second';
+        reopenRow.tabIndex = -1;
+        reopenRow.textContent = 'Open the last channel when the app starts: ' + (reopenLast ? 'On' : 'Off');
+        reopenRow.addEventListener('click', function () {
+            reopenLast = !reopenLast;
+            try { localStorage.setItem(REOPEN_LAST_KEY, reopenLast ? '1' : '0'); } catch (e) { /* non-fatal */ }
+            renderPlaylistList();
+            Focus.setZone('playlistList', Focus.row, 0);
+        });
+        list.appendChild(reopenRow);
+
+        // Diagnostics log (a row so that Down scrolls it into view). OK refreshes it.
+        var logRow = document.createElement('button');
+        logRow.className = 'playlist-row add-row log-row';
+        logRow.tabIndex = -1;
+        logRow.textContent = 'Diagnostics (newest last)\n' + (readLog().join('\n') || 'nothing recorded yet');
+        logRow.addEventListener('click', function () {
+            renderPlaylistList();
+            Focus.setZone('playlistList', Focus.row, 0);
+        });
+        list.appendChild(logRow);
     }
 
     // Which copy is running: loaded from GitHub by the launcher, the bundled
@@ -1126,7 +1184,18 @@
     function reopenLastChannel() {
         var saved = null;
         try { saved = JSON.parse(localStorage.getItem(LAST_CHANNEL_KEY) || 'null'); } catch (e) { saved = null; }
-        if (!saved || !saved.url) return;
+        if (!saved || !saved.url || !reopenLast) return;
+        // The previous start reopened a channel and never got as far as a
+        // picture or a key press: do not walk into the same problem again.
+        var pending = null;
+        try { pending = localStorage.getItem(REOPEN_PENDING_KEY); } catch (e) { pending = null; }
+        if (pending === '1') {
+            clearReopenPending();
+            logEvent('last channel not reopened: it did not start last time');
+            showToast('Last channel not reopened: it did not start last time');
+            return;
+        }
+        try { localStorage.setItem(REOPEN_PENDING_KEY, '1'); } catch (e) { /* non-fatal */ }
         if (saved.context === 'favorites') {
             var favs = visibleFavorites();
             var fav = favs.find(function (f) { return f.url === saved.url; });
@@ -1138,6 +1207,10 @@
             var ch = cat.channels.find(function (c) { return c.url === saved.url; });
             if (ch) { state.activeCategoryIndex = i; playChannel(ch, 'category', cat.channels); return; }
         }
+    }
+
+    function clearReopenPending() {
+        try { localStorage.removeItem(REOPEN_PENDING_KEY); } catch (e) { /* non-fatal */ }
     }
 
     function zapChannel(delta) {
@@ -1192,6 +1265,7 @@
         // tryNextEngine() below stops whatever was playing.
         state.playToken = (state.playToken || 0) + 1;
         state.isPlaying = false;
+        state.quality = '';
 
         document.getElementById('nowPlayingName').textContent = ch.name;
         document.getElementById('nowPlayingNumber').textContent = ch.number ? String(ch.number) : '';
@@ -1216,11 +1290,13 @@
         stopEngines();
         if (!engine) {
             state.playFailed = true;
+            logEvent('could not play: ' + (state.playErrors.join(' | ') || 'no player available'));
             setPlayerStatus('Could not play \u2014 ' + (state.playErrors.join(' | ') || 'no player available'));
             showToast('This channel is unavailable right now');
             return;
         }
         state.engine = engine;
+        logEvent('play "' + ch.name + '" with ' + engineLabel(engine));
         state.watchdogId = setTimeout(function () {
             if (token !== state.playToken || state.isPlaying) return;
             engineFailed(token, engineLabel(engine) + ': no video after ' + (PLAY_WATCHDOG_MS / 1000) + ' s');
@@ -1239,16 +1315,33 @@
         if (!state.nowPlaying || state.isPlaying) return;
         state.isPlaying = true;
         if (state.watchdogId) { clearTimeout(state.watchdogId); state.watchdogId = null; }
+        logEvent('playing (' + engineLabel(state.engine) + ')');
         setPlayerStatus(playingText());
         showOverlay();
+        // Browser players: read the picture size shortly after the start.
+        // The Samsung player is only asked when Right/INFO is pressed.
+        if (state.engine !== 'avplay') scheduleQualityRefresh(1500);
     }
 
     // "Playing (Samsung player) · 1920x1080 · 4.8 Mbps" so a soft picture can
     // be told apart: low numbers mean the channel itself sends low quality.
+    // Uses the quality last read by refreshQuality(). It must not ask the
+    // player itself: this runs inside the Samsung player's own callbacks, and
+    // calling back into the player from there can freeze it on some TVs.
     function playingText() {
         var text = 'Playing (' + engineLabel(state.engine) + ')';
-        var q = currentQuality();
-        return q ? text + ' \u00b7 ' + q : text;
+        return state.quality ? text + ' \u00b7 ' + state.quality : text;
+    }
+
+    function scheduleQualityRefresh(delayMs) {
+        var token = state.playToken;
+        setTimeout(function () {
+            if (token !== state.playToken || !state.isPlaying) return;
+            if (state.engine === 'avplay') logEvent('asking Samsung player for picture info');
+            state.quality = currentQuality();
+            if (state.engine === 'avplay') logEvent('picture info: ' + (state.quality || 'none'));
+            setPlayerStatus(playingText());
+        }, delayMs);
     }
 
     function currentQuality() {
@@ -1262,10 +1355,6 @@
                     w = parseInt(info.Width || info.width, 10) || 0;
                     h = parseInt(info.Height || info.height, 10) || 0;
                     kbps = Math.round((parseInt(info.Bit_rate || info.bitrate, 10) || 0) / 1000);
-                }
-                if (!kbps) {
-                    var bw = parseInt(webapis.avplay.getStreamingProperty('CURRENT_BANDWIDTH'), 10);
-                    if (bw) kbps = Math.round(bw / 1000);
                 }
             } else if (state.engine === 'hls' && state.hls && state.hls.levels && state.hls.currentLevel >= 0) {
                 var lvl = state.hls.levels[state.hls.currentLevel];
@@ -1283,6 +1372,7 @@
     function streamStopped(reason) {
         stopEngines();
         state.isPlaying = false;
+        logEvent('stream stopped: ' + reason);
         setPlayerStatus('Stream stopped: ' + reason);
         showOverlay();
         showToast('This channel is unavailable right now');
@@ -1328,10 +1418,7 @@
                     var reason = label + (err && err.name ? err.name : String(err));
                     if (state.isPlaying) streamStopped(reason); else engineFailed(token, reason);
                 },
-                // Resolution / bitrate changes: refresh the quality shown.
-                onevent: function () {
-                    if (token === state.playToken && state.isPlaying) setPlayerStatus(playingText());
-                }
+                onevent: function () { /* not used */ }
             });
             av.prepareAsync(function () {
                 if (token !== state.playToken) return;
@@ -1353,6 +1440,7 @@
     function engineFailed(token, reason) {
         if (token !== state.playToken || state.isPlaying) return;
         console.error('Playback engine failed:', reason);
+        logEvent('failed: ' + reason);
         state.playErrors.push(reason);
         if (state.enginesLeft.length) setPlayerStatus(reason + ' — trying ' + engineLabel(state.enginesLeft[0]) + '…');
         tryNextEngine(token);
@@ -1481,7 +1569,7 @@
     // toggles the favorite. Otherwise OK opens the channel list.
     function startInfoInteractive() {
         state.infoInteractive = true;
-        if (state.isPlaying) setPlayerStatus(playingText());
+        if (state.isPlaying) { setPlayerStatus(playingText()); scheduleQualityRefresh(0); }
         showOverlay();
         Focus.setZone('playerFavorite', 0, 0);
     }
@@ -1661,6 +1749,7 @@
     // (Home key, another app). Without this the picture stays black on return.
     document.addEventListener('visibilitychange', function () {
         if (!state.nowPlaying || activeScreenId() !== 'screen-player') return;
+        logEvent(document.hidden ? 'app hidden' : 'app visible again');
         if (document.hidden) {
             state.playToken = (state.playToken || 0) + 1;
             stopEngines();
@@ -1726,6 +1815,7 @@
         var onPlayer = document.getElementById('screen-player').classList.contains('active');
 
         if (onPlayer) {
+            clearReopenPending();
             var overlay = document.getElementById('playerOverlay');
             if (overlay.classList.contains('visible') && state.overlayTimeoutId) {
                 clearTimeout(state.overlayTimeoutId);
@@ -1753,6 +1843,9 @@
     if (bootMsg && bootMsg.parentNode) bootMsg.parentNode.removeChild(bootMsg);
     loadFavorites();
     loadPlaylistsFromStorage();
+    logEvent('start ' + APP_VERSION + ' from ' + (window.MYTVAPP_SOURCE || (function () {
+        try { return sessionStorage.getItem('mytvapp_source'); } catch (e) { return null; }
+    })() || 'own page') + ', Samsung player ' + (hasAvplay ? 'yes' : 'no'));
     Focus.setZone('iconRail', 0, 0);
 
     // First run (or every playlist deleted): open the Playlists screen so the

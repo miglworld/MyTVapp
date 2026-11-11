@@ -1,9 +1,9 @@
 {
   "name": "mytvapp",
-  "version": "1.4.0",
+  "version": "1.4.2",
   "description": "IPTV player for Samsung TVs: playlists, favorites, channel list, number zapping",
   "packageType": "app",
-  "appName": "TVapp",
+  "appName": "MyTvApp",
   "appPath": "index.html",
   "keys": ["ChannelUp", "ChannelDown", "MediaPlayPause"],
   "license": "UNLICENSED",

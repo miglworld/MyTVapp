@@ -2,6 +2,12 @@
 
 MyTvApp's own history starts at v0.1. Newest first. Each entry also names the version number the app showed at the time.
 
+## v0.10.0 (2026-11-11)
+- Playlists are remembered on the TV: channels appear at once when the app opens, and stored copies older than 6 hours are refreshed in the background. "Reload playlists now" in Settings.
+- Developer mode (Settings): follow the `dev` branch to try test versions before they are merged. "Check for updates now" in Settings.
+- A failed reload keeps the channels that were already loaded.
+- Repository: checks on every pull request (scripts parse, versions match, tests, version bumped).
+
 ## v0.9.2 (2026-11-11)
 - No changes to the app: a second self-update run on the TV.
 

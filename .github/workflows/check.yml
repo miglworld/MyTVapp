@@ -1,0 +1,26 @@
+name: Check
+
+# TVs update themselves from main, so nothing reaches it unchecked.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, dev]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run checks
+        env:
+          BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || '' }}
+        run: ./scripts/check.sh

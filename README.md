@@ -14,6 +14,7 @@ An IPTV player for Samsung Smart TVs (Tizen). It plays live channels from M3U/M3
 - **Remote-control navigation.** D-pad, OK and Back everywhere, plus channel up/down, number keys, previous channel and play/pause.
 - **Three players with automatic fallback.** In the installed app, Samsung's own player (**AVPlay**) is tried first: it opens streams itself (no CORS limits) and decodes HLS natively. Then the browser's `<video>` element, then [hls.js](https://github.com/video-dev/hls.js/) (bundled, v1.6.19). If a player fails or shows no video within 12 s, the next one is tried. A status line shows the player in use, the stream's resolution and bitrate, and every player's error if a channel fails.
 - **Picture tuning (optional, off by default).** A switch at the bottom of Settings. On: the Samsung player starts adaptive streams at their highest quality and keeps the stream's own picture shape. Turn it off if the picture stays black.
+- **Remembers playlists.** Each playlist is stored on the TV, so channels appear at once when the app opens. A stored copy older than 6 hours is downloaded again in the background; "Reload playlists now" in Settings does it on demand.
 - **Updates itself.** The installed app checks GitHub after it starts and downloads newer versions; a version that fails to start is discarded (see [How updates work](#how-updates-work)).
 - **System keyboard.** The playlist URL field opens Samsung's keyboard, so you can also type from your phone with the SmartThings app.
 
@@ -68,6 +69,15 @@ Install the package once. After that the app updates itself from GitHub.
 - The bottom of Settings lists the last events (start, playlists, player, updates, errors). The list survives a restart.
 - The screen says "Starting MyTvApp…" until the app runs. If the app script fails, the error is shown in a red box at the bottom of the screen.
 
+### Developer mode
+
+**Developer mode** (a switch in Settings, off by default) makes the TV follow the repo's `dev` branch instead of `main`, so a test version can be tried on the TV before it is merged.
+
+- With it on, the TV takes whatever version the `dev` branch holds, as long as it differs from the one running and is newer than the installed package. "Check for updates now" fetches it without restarting the app by hand.
+- GitHub serves branch files with a delay of up to about five minutes after a push.
+- A test version that does not start is discarded like any other update.
+- Turning it off forgets the test version: the next start runs the installed package's version, which then updates to the released one.
+
 A new package is still needed when `config.xml`, `js/boot.js` or `lib/hls.min.js` changes.
 
 `launcher.html` is an older experiment (a start page that loads the app from GitHub). It is **not used**: packages that started through it showed a black screen on a real TV.
@@ -87,17 +97,30 @@ lib/hls.min.js        hls.js 1.6.19, bundled (license: lib/hls.LICENSE)
 icon.png              App icon referenced by config.xml
 package.json          Version and TizenBrew module info
 scripts/build-wgt.sh  Builds the unsigned MyTvApp.wgt
+scripts/check.sh      Checks run before every merge (also by GitHub on each pull request)
+scripts/test.js       Tests for the playlist reader and version comparison
 .nojekyll             Makes GitHub Pages serve the files as they are
 ```
 
 There is no build step for the app itself: `index.html` runs as it is, in a desktop browser too (`python3 -m http.server`, then open `index.html`; the Samsung player is not available there).
 
+### Checks
+
+TVs update themselves from `main`, so every pull request is checked by GitHub (`.github/workflows/check.yml`) and should only be merged when the check is green. Run the same checks locally with:
+
+```bash
+./scripts/check.sh
+```
+
+They verify that the scripts parse, that the version is the same in all four places, that the files self-update relies on are intact, that the tests pass, and (in a pull request) that the version went up whenever the app's own files changed.
+
 ### Releasing a change
 
 1. Bump the version in **four places**, to the same value: `package.json`, `config.xml`, `APP_VERSION` in `js/main.js`, and `BUNDLED_VERSION` in `js/boot.js`.
 2. Add a line to [CHANGELOG.md](CHANGELOG.md).
-3. Merge into `main`. GitHub Pages publishes it and installed TVs update themselves on the next start.
-4. For a new package (first installs, or a change to `config.xml`, `js/boot.js` or `lib/hls.min.js`), build it and attach it to a GitHub release:
+3. Optional: try it on the TV first. Push the work to the `dev` branch (`git push origin HEAD:dev --force-with-lease`), and on a TV with Developer mode on choose "Check for updates now".
+4. Open a pull request, wait for the check, and merge into `main`. GitHub Pages publishes it and installed TVs update themselves on the next start. Afterwards bring `dev` level with `main` again.
+5. For a new package (first installs, or a change to `config.xml`, `js/boot.js` or `lib/hls.min.js`), build it and attach it to a GitHub release:
 
 ```bash
 ./scripts/build-wgt.sh
@@ -125,7 +148,7 @@ This produces `.buildResult/MyTvApp.wgt`.
 
 ## Network dependence
 
-Playlists are fetched from their URL at startup; a load that hangs is stopped after 15 seconds with a message. Channels stream from their own servers, and many free iptv-org streams are offline or geo-blocked at any given time.
+Playlists are downloaded from their URL the first time and then kept on the TV; later starts use the stored copy and refresh it in the background. A download that hangs is stopped after 15 seconds with a message. Channels stream from their own servers, and many free iptv-org streams are offline or geo-blocked at any given time.
 
 ## Credits and license
 

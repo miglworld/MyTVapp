@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <widget xmlns:tizen="http://tizen.org/ns/widgets" xmlns="http://www.w3.org/ns/widgets"
-	id="https://miglworld.github.io/MyTvApp" version="0.11.1" viewmodes="maximized">
+	id="https://miglworld.github.io/MyTvApp" version="0.11.2" viewmodes="maximized">
 	<tizen:application id="wAKjt4yhqx.TVapp" package="wAKjt4yhqx"
 		required_version="2.3" />
 	<content src="index.html" />

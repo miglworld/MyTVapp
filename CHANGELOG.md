@@ -5,7 +5,11 @@ MyTvApp's own history starts at v0.1. Newest first. Each entry also names the ve
 ## v0.11 (in testing on the `dev` branch)
 - New Live TV screen in place of the home, categories and channel grid screens: the channel plays behind the whole screen, with a floating side menu (every category) and a floating numbered channel list over it, and the channel's caption at the bottom.
 - One playback for browsing and full screen: OK hides the panels, Back shows them again, and the stream is not restarted.
-- New minimal look: black base, rounded panels, a light pill for the focused item, no gradients or outlines.
+- New minimal look: black base, rounded glass panels with a light edge, a bright pill for the focused item. The panels blur what is behind them where the browser can (not over the Samsung player's picture, which lies outside the page).
+- Full screen: the caption sits at the bottom, and the channel list is a floating glass panel.
+- Faster channel start (Settings switch, on by default): the Samsung player shows the picture after 2 seconds of buffer.
+- Plain status texts ("Connecting…", "Playing · 1920x1080 · 4.8 Mbps", "Not available right now…"). Which player was tried and why it failed is in the diagnostics list.
+- A channel the first player cannot show is given up on sooner (7 s per fallback instead of 12 s).
 
 ## v0.10.1 (2026-11-11)
 Security review.

@@ -21,12 +21,13 @@
     // ==========================================================================
     // Config / constants
     // ==========================================================================
-    var APP_VERSION = '0.11.1';
+    var APP_VERSION = '0.11.2';
     var PLAYLISTS_KEY = 'iptv_playlists';
     var ACTIVE_PLAYLISTS_KEY = 'iptv_active_playlist_id';
     var FAVORITES_KEY = 'iptv_favorites';
     var LAST_CHANNEL_KEY = 'iptv_last_channel';
     var PICTURE_TUNING_KEY = 'iptv_picture_tuning';
+    var FAST_START_KEY = 'iptv_fast_start';
     var REOPEN_LAST_KEY = 'iptv_reopen_last';
     var REOPEN_PENDING_KEY = 'iptv_reopen_pending';
     var LOG_KEY = 'iptv_log';
@@ -138,6 +139,13 @@
     // plain player is the configuration known to show a picture on every TV.
     var pictureTuning = false;
     try { pictureTuning = localStorage.getItem(PICTURE_TUNING_KEY) === '1'; } catch (e) { pictureTuning = false; }
+
+    // Faster channel start (Settings switch, on by default): the Samsung
+    // player shows the picture after buffering 2 seconds instead of its own,
+    // longer default.
+    var fastStart = true;
+    try { fastStart = localStorage.getItem(FAST_START_KEY) !== '0'; } catch (e) { fastStart = true; }
+    var fastStartFailureLogged = false;
 
     // Reopen the last watched channel when the app starts. Off by default:
     // the app then always starts on its own screens, so a channel or player
@@ -1179,6 +1187,19 @@
         });
         list.appendChild(tuningRow);
 
+        var fastRow = document.createElement('button');
+        fastRow.className = 'playlist-row add-row option-row second';
+        fastRow.tabIndex = -1;
+        fastRow.textContent = 'Faster channel start: ' + (fastStart ? 'On' : 'Off');
+        fastRow.addEventListener('click', function () {
+            fastStart = !fastStart;
+            try { localStorage.setItem(FAST_START_KEY, fastStart ? '1' : '0'); } catch (e) { /* non-fatal */ }
+            renderPlaylistList();
+            Focus.setZone('playlistList', Focus.row, 0);
+            showToast(fastStart ? 'Faster channel start on. If channels stutter, turn it off' : 'Faster channel start off');
+        });
+        list.appendChild(fastRow);
+
         var reopenRow = document.createElement('button');
         reopenRow.className = 'playlist-row add-row option-row second';
         reopenRow.tabIndex = -1;
@@ -1707,6 +1728,9 @@
     // second engine; off-TV (browser testing) the order is reversed. If an
     // engine errors or shows no video within PLAY_WATCHDOG_MS, the next one is tried.
     var PLAY_WATCHDOG_MS = 12000;
+    // A stream the first player could not show rarely works in another one:
+    // the fallbacks get less time, so a dead channel is given up on sooner.
+    var FALLBACK_WATCHDOG_MS = 7000;
     var isTizen = !!(window.tizen);
     // Samsung's native player (AVPlay). Present only in an installed .wgt with
     // webapis.js loaded; not in a TizenBrew module or a desktop browser. It
@@ -1776,17 +1800,19 @@
         stopEngines();
         if (!engine) {
             state.playFailed = true;
+            // The reasons, player by player, are in the diagnostics list.
             logEvent('could not play: ' + (state.playErrors.join(' | ') || 'no player available'));
-            setPlayerStatus('Could not play \u2014 ' + (state.playErrors.join(' | ') || 'no player available'));
+            setPlayerStatus('Not available right now. The channel may be offline or blocked in your country.');
             unavailableToast();
             return;
         }
         state.engine = engine;
         logEvent('play "' + ch.name + '" with ' + engineLabel(engine));
+        var patience = state.playErrors.length ? FALLBACK_WATCHDOG_MS : PLAY_WATCHDOG_MS;
         state.watchdogId = setTimeout(function () {
             if (token !== state.playToken || state.isPlaying) return;
-            engineFailed(token, engineLabel(engine) + ': no video after ' + (PLAY_WATCHDOG_MS / 1000) + ' s');
-        }, PLAY_WATCHDOG_MS);
+            engineFailed(token, engineLabel(engine) + ': no video after ' + (patience / 1000) + ' s');
+        }, patience);
 
         if (engine === 'avplay') startAvplay(ch, token);
         else if (engine === 'native') startNative(ch, token);
@@ -1815,8 +1841,7 @@
     // player itself: this runs inside the Samsung player's own callbacks, and
     // calling back into the player from there can freeze it on some TVs.
     function playingText() {
-        var text = 'Playing (' + engineLabel(state.engine) + ')';
-        return state.quality ? text + ' \u00b7 ' + state.quality : text;
+        return state.quality ? 'Playing \u00b7 ' + state.quality : 'Playing';
     }
 
     function scheduleQualityRefresh(delayMs) {
@@ -1859,13 +1884,13 @@
         stopEngines();
         state.isPlaying = false;
         logEvent('stream stopped: ' + reason);
-        setPlayerStatus('Stream stopped: ' + reason);
+        setPlayerStatus('The stream stopped.');
         showOverlay();
         unavailableToast();
     }
 
     function startAvplay(ch, token) {
-        setPlayerStatus('Connecting (Samsung player)\u2026');
+        setPlayerStatus('Connecting\u2026');
         if (!avplayObject) {
             avplayObject = document.createElement('object');
             avplayObject.id = 'avPlayer';
@@ -1881,6 +1906,19 @@
             state.avplayOpen = true;
             // setDisplayRect always uses a 1920x1080 base (Samsung AVPlay guide): full screen.
             av.setDisplayRect(0, 0, 1920, 1080);
+            // Faster channel start (optional): show the picture after 2 s of
+            // buffer, and resume after 3 s when it runs dry.
+            if (fastStart) {
+                try {
+                    av.setBufferingParam('PLAYER_BUFFER_FOR_PLAY', 'PLAYER_BUFFER_SIZE_IN_SECOND', 2);
+                    av.setBufferingParam('PLAYER_BUFFER_FOR_RESUME', 'PLAYER_BUFFER_SIZE_IN_SECOND', 3);
+                } catch (e) {
+                    if (!fastStartFailureLogged) {
+                        fastStartFailureLogged = true;
+                        logEvent('faster channel start not supported: ' + ((e && e.name) || e));
+                    }
+                }
+            }
             // Picture tuning (optional): adaptive streams start at the highest
             // quality the stream offers instead of the TV's default.
             if (pictureTuning) {
@@ -1888,7 +1926,7 @@
             }
             av.setListener({
                 onbufferingstart: function () {
-                    if (token === state.playToken && state.isPlaying) setPlayerStatus('Buffering\u2026 (Samsung player)');
+                    if (token === state.playToken && state.isPlaying) setPlayerStatus('Buffering\u2026');
                 },
                 onbufferingcomplete: function () {
                     if (token === state.playToken && state.isPlaying) setPlayerStatus(playingText());
@@ -1928,26 +1966,24 @@
         console.error('Playback engine failed:', reason);
         logEvent('failed: ' + reason);
         state.playErrors.push(reason);
-        if (state.enginesLeft.length) setPlayerStatus(reason + ' — trying ' + engineLabel(state.enginesLeft[0]) + '…');
+        if (state.enginesLeft.length) setPlayerStatus('Trying another way to play\u2026');
         tryNextEngine(token);
     }
 
     function safePlay(token) {
         var p = videoPlayer.play();
         if (p && p.catch) p.catch(function (e) {
-            if (token === state.playToken && !state.isPlaying && !state.playFailed) setPlayerStatus(engineLabel(state.engine) + ': play() refused (' + (e && e.name || 'error') + ')');
+            if (token === state.playToken && !state.isPlaying && !state.playFailed) logEvent(engineLabel(state.engine) + ': play() refused (' + (e && e.name || 'error') + ')');
         });
     }
 
     function startNative(ch, token) {
-        setPlayerStatus('Connecting (TV player)…');
         videoPlayer.src = ch.url;
         videoPlayer.load();
         safePlay(token);
     }
 
     function startHls(ch, token) {
-        setPlayerStatus('Connecting (hls.js)…');
         // Local reference: callbacks from an earlier attempt must not act on a newer one.
         var hls = new Hls({ backBufferLength: 30 });
         var networkRetries = 0;
@@ -1957,7 +1993,7 @@
         hls.attachMedia(videoPlayer);
         hls.on(Hls.Events.MANIFEST_PARSED, function () {
             if (state.hls !== hls) return;
-            setPlayerStatus('Stream found (hls.js), starting video…');
+            setPlayerStatus('Starting\u2026');
             safePlay(token);
         });
         // A segment arriving means the stream is healthy again.
@@ -1965,7 +2001,6 @@
         hls.on(Hls.Events.ERROR, function (event, data) {
             if (state.hls !== hls) return;
             if (!data.fatal) {
-                if (!state.isPlaying) setPlayerStatus('hls.js warning: ' + data.details);
                 return;
             }
             console.error('HLS.js fatal error:', data.type, data.details);
@@ -1985,7 +2020,8 @@
                 // Stream died mid-playback: tell the user instead of freezing.
                 stopEngines();
                 state.isPlaying = false;
-                setPlayerStatus('Stream stopped: ' + data.details);
+                logEvent('stream stopped: hls.js ' + data.details);
+                setPlayerStatus('The stream stopped.');
                 showOverlay();
                 unavailableToast();
             } else {
@@ -2009,7 +2045,8 @@
         if (state.isPlaying) {
             stopEngines();
             state.isPlaying = false;
-            setPlayerStatus('Stream stopped: ' + reason);
+            logEvent('stream stopped: ' + reason);
+            setPlayerStatus('The stream stopped.');
             showOverlay();
             unavailableToast();
         } else {
@@ -2017,7 +2054,7 @@
         }
     });
     videoPlayer.addEventListener('waiting', function () {
-        if (state.isPlaying) setPlayerStatus('Buffering… (' + engineLabel(state.engine) + ')');
+        if (state.isPlaying) setPlayerStatus('Buffering\u2026');
     });
 
     function updateFavoriteButton() {

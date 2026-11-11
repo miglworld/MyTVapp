@@ -33,6 +33,8 @@ window.onerror = function (msg, file, line) {
 		<!-- ===================== Side menu ===================== -->
 		<nav class="sidebar" id="sidebar">
 			<div class="brand"><span class="brand-name">MyTvApp</span><span class="live-clock" id="liveClock"></span></div>
+			<!-- Main menu -->
+			<div class="menu-root" id="menuRoot">
 			<button class="menu-item" id="navLive" tabindex="-1">
 				<svg class="menu-icon" viewBox="0 0 24 24" width="28" height="28">
 					<path fill="currentColor" d="M8.3 2.3 12 6l3.7-3.7 1.4 1.4L14.8 6H20a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5.2L6.9 3.7zM4 8v11h16V8z" /></svg>
@@ -43,13 +45,27 @@ window.onerror = function (msg, file, line) {
 					<path fill="currentColor" d="M12 21s-7.5-4.6-9.6-9.3C.9 8.300 3 4.500 6.600 4.500c2 0 3.700 1.100 5.400 3 1.700-1.900 3.400-3 5.400-3 3.600 0 5.700 3.800 4.200 7.200C19.500 16.400 12 21 12 21z" /></svg>
 				<span class="menu-label">Favorites</span><span class="menu-count" id="navFavoritesCount"></span>
 			</button>
-			<div class="menu-scroll" id="menuCategories"></div>
 			<button class="menu-item" id="navSettings" tabindex="-1">
 				<svg class="menu-icon" viewBox="0 0 24 24" width="28" height="28">
 					<path fill="currentColor"
 						d="M19.4 13a7.6 7.6 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7.6 7.6 0 0 0-1.7-1L15 3h-4l-.3 2.9a7.6 7.6 0 0 0-1.7 1l-2.4-1-2 3.4L6.6 11a7.6 7.6 0 0 0 0 2l-2 1.6 2 3.4 2.400-1a7.600 7.600 0 0 0 1.700 1L11 21h4l.3-2.900a7.600 7.600 0 0 0 1.700-1l2.400 1 2-3.400z M12 15.500a3.500 3.500 0 1 1 0-7 3.500 3.500 0 0 1 0 7z" /></svg>
 				<span class="menu-label">Settings</span>
 			</button>
+			</div>
+			<!-- Live TV's own menu: takes the main menu's place (see setMenuMode in js/main.js). -->
+			<div class="menu-sub" id="menuLive">
+				<button class="menu-item menu-back" id="navBack" tabindex="-1">
+					<span class="menu-back-arrow">&#8249;</span>
+					<svg class="menu-icon" viewBox="0 0 24 24" width="28" height="28">
+					<path fill="currentColor" d="M8.3 2.3 12 6l3.7-3.7 1.4 1.4L14.8 6H20a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5.2L6.9 3.7zM4 8v11h16V8z" /></svg>
+					<span class="menu-label">Live TV</span>
+				</button>
+				<button class="menu-item" id="navAll" tabindex="-1">
+					<span class="menu-label">All channels</span><span class="menu-count" id="navAllCount"></span>
+				</button>
+				<div class="menu-header" id="menuCategoriesHeader">Categories</div>
+				<div class="menu-scroll" id="menuCategories"></div>
+			</div>
 		</nav>
 
 		<div class="main-area">

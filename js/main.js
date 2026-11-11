@@ -21,7 +21,7 @@
     // ==========================================================================
     // Config / constants
     // ==========================================================================
-    var APP_VERSION = '0.11.3';
+    var APP_VERSION = '0.11.4';
     var PLAYLISTS_KEY = 'iptv_playlists';
     var ACTIVE_PLAYLISTS_KEY = 'iptv_active_playlist_id';
     var FAVORITES_KEY = 'iptv_favorites';
@@ -108,6 +108,7 @@
         statusText: '',          // last player status line
         previewTimer: null,
         menuTimer: null,
+        menuMode: 'root',        // side menu shows: 'root' (Live TV, Favorites, Settings) or 'live' (Live TV's own menu)
         favorites: [],
         nowPlaying: null,
         zapContext: 'category',  // 'category' | 'favorites'
@@ -285,7 +286,7 @@
         Focus.zones[zoneName].onEdge = (function (existing) {
             return function (dir) {
                 if (dir === 'left') {
-                    Focus.setZone('sideMenu', currentMenuRow(), 0);
+                    enterMenu();
                 } else if (existing) {
                     existing(dir);
                 }
@@ -367,7 +368,7 @@
         if (id === 'screen-live') {
             refreshLiveList(false);
             if (state.liveList.length) focusLiveList();
-            else Focus.setZone('sideMenu', currentMenuRow(), 0);
+            else enterMenu();
         } else if (id === 'screen-settings') {
             renderPlaylistList();
             renderAppVersion();
@@ -380,24 +381,37 @@
     // the active playlists, and Settings. Moving through it changes the channel
     // list at once; OK or Right goes into the list.
     // ==========================================================================
-    function menuButtons() {
-        var rows = [[document.getElementById('navLive')], [document.getElementById('navFavorites')]];
-        var cats = document.querySelectorAll('#menuCategories .menu-item');
-        for (var i = 0; i < cats.length; i++) rows.push([cats[i]]);
-        rows.push([document.getElementById('navSettings')]);
-        return rows;
+    function setMenuMode(mode) {
+        state.menuMode = mode;
+        document.getElementById('sidebar').classList.toggle('sub', mode === 'live');
     }
 
+    function menuButtons() {
+        if (state.menuMode === 'live') {
+            var rows = [[document.getElementById('navBack')], [document.getElementById('navAll')]];
+            var cats = document.querySelectorAll('#menuCategories .menu-item');
+            for (var i = 0; i < cats.length; i++) rows.push([cats[i]]);
+            return rows;
+        }
+        return [[document.getElementById('navLive')], [document.getElementById('navFavorites')], [document.getElementById('navSettings')]];
+    }
+
+    // What a menu row stands for, in the menu that is showing.
     function sectionForRow(row) {
-        if (row === 0) return { type: 'all' };
+        if (state.menuMode === 'live') {
+            if (row === 1) return { type: 'all' };
+            if (row >= 2 && row - 2 < state.categories.length) return { type: 'category', index: row - 2 };
+            return null;   // the "Live TV" header
+        }
+        // Live TV keeps the category that was showing.
+        if (row === 0) return state.section.type === 'favorites' ? { type: 'all' } : state.section;
         if (row === 1) return { type: 'favorites' };
-        return row - 2 < state.categories.length ? { type: 'category', index: row - 2 } : null;
+        return null;       // Settings
     }
 
     function rowForSection(section) {
-        if (section.type === 'favorites') return 1;
-        if (section.type === 'category') return 2 + section.index;
-        return 0;
+        if (state.menuMode === 'live') return section.type === 'category' ? 2 + section.index : 1;
+        return section.type === 'favorites' ? 1 : 0;
     }
 
     function sameSection(a, b) {
@@ -413,28 +427,46 @@
     function sectionTitle(section) {
         if (section.type === 'favorites') return 'Favorites';
         if (section.type === 'category') return (state.categories[section.index] || { name: 'Channels' }).name;
-        return 'Live TV';
+        return 'All channels';
     }
 
     function sectionContext(section) {
         return section.type === 'favorites' ? 'favorites' : 'category';
     }
 
+    function onSettingsScreens() {
+        return activeScreenId() === 'screen-settings' || activeScreenId() === 'screen-add';
+    }
+
     function currentMenuRow() {
-        if (activeScreenId() === 'screen-settings' || activeScreenId() === 'screen-add') return menuButtons().length - 1;
+        if (state.menuMode === 'root' && onSettingsScreens()) return 2;
         return rowForSection(state.section);
     }
 
-    // Highlights the menu entry of what is showing.
-    function markMenu() {
-        var rows = menuButtons();
-        var current = currentMenuRow();
-        for (var i = 0; i < rows.length; i++) rows[i][0].classList.toggle('active', i === current);
-        // For the folded menu, which only has the three icons.
-        document.getElementById('sidebar').setAttribute('data-root',
-            current === rows.length - 1 ? 'settings' : (state.section.type === 'favorites' ? 'favorites' : 'live'));
+    // Moves the remote into the menu, onto the entry of what is showing: Live
+    // TV's own menu while its channels are on screen, otherwise the main one.
+    function enterMenu() {
+        setMenuMode(!onSettingsScreens() && state.section.type !== 'favorites' ? 'live' : 'root');
+        Focus.setZone('sideMenu', currentMenuRow(), 0);
     }
 
+    // Highlights the entries of what is showing, in both menus.
+    function markMenu() {
+        var settings = onSettingsScreens();
+        var type = state.section.type;
+        document.getElementById('navLive').classList.toggle('active', !settings && type !== 'favorites');
+        document.getElementById('navFavorites').classList.toggle('active', !settings && type === 'favorites');
+        document.getElementById('navSettings').classList.toggle('active', settings);
+        document.getElementById('navAll').classList.toggle('active', !settings && type === 'all');
+        var cats = document.querySelectorAll('#menuCategories .menu-item');
+        for (var i = 0; i < cats.length; i++) {
+            cats[i].classList.toggle('active', !settings && type === 'category' && state.section.index === i);
+        }
+        // For the folded menu, which only has the three icons.
+        document.getElementById('sidebar').setAttribute('data-root', settings ? 'settings' : (type === 'favorites' ? 'favorites' : 'live'));
+    }
+
+    // Builds Live TV's menu: the categories of the active playlists.
     function renderSideMenu() {
         // A category that no longer exists (playlist switched off): back to everything.
         if (state.section.type === 'category' && !state.categories[state.section.index]) state.section = { type: 'all' };
@@ -473,25 +505,51 @@
             frag.appendChild(btn);
         });
         box.appendChild(frag);
+        // "Categories" heading: only when there is one playlist (several bring their own headings).
+        document.getElementById('menuCategoriesHeader').hidden = playlistCount !== 1;
         updateMenuCounts();
         markMenu();
     }
 
     function updateMenuCounts() {
         document.getElementById('navLiveCount').textContent = state.channels.length || '';
+        document.getElementById('navAllCount').textContent = state.channels.length || '';
         document.getElementById('navFavoritesCount').textContent = visibleFavorites().length || '';
     }
 
-    // OK on a menu entry: show that section and go into its channel list.
-    function openSection(section) {
+    // Shows a section's channels in the list, without moving the remote.
+    function showSection(section) {
+        if (state.menuTimer) { clearTimeout(state.menuTimer); state.menuTimer = null; }
         state.section = section;
         if (activeScreenId() !== 'screen-live') showScreen('screen-live');
         refreshLiveList(true);
         markMenu();
+    }
+
+    // OK on All channels, a category or Favorites: show it and go into its channels.
+    function openSection(section) {
+        showSection(section);
         if (state.liveList.length) focusLiveList();
     }
 
-    document.getElementById('navLive').addEventListener('click', function () { openSection({ type: 'all' }); });
+    // OK or Right on Live TV: its own menu (All channels and the categories)
+    // takes the place of the main one.
+    function openLiveMenu() {
+        showSection(state.section.type === 'favorites' ? { type: 'all' } : state.section);
+        setMenuMode('live');
+        Focus.setZone('sideMenu', currentMenuRow(), 0);
+    }
+
+    // The "Live TV" header, Left or Back in Live TV's menu: the main menu again.
+    function closeLiveMenu() {
+        if (state.menuTimer) { clearTimeout(state.menuTimer); state.menuTimer = null; }
+        setMenuMode('root');
+        Focus.setZone('sideMenu', 0, 0);
+    }
+
+    document.getElementById('navLive').addEventListener('click', openLiveMenu);
+    document.getElementById('navBack').addEventListener('click', closeLiveMenu);
+    document.getElementById('navAll').addEventListener('click', function () { openSection({ type: 'all' }); });
     document.getElementById('navFavorites').addEventListener('click', function () { openSection({ type: 'favorites' }); });
     document.getElementById('navSettings').addEventListener('click', function () { switchToScreen('screen-settings'); });
 
@@ -508,27 +566,24 @@
             state.menuTimer = setTimeout(function () {
                 state.menuTimer = null;
                 if (activeScreenId() !== 'screen-live' || Focus.currentZone !== 'sideMenu') return;
-                state.section = section;
-                refreshLiveList(true);
-                markMenu();
+                showSection(section);
             }, 150);
         },
         onEdge: function (dir) {
+            if (dir === 'left') {
+                if (state.menuMode === 'live') closeLiveMenu();
+                return;
+            }
             if (dir !== 'right') return;
             var screen = activeScreenId();
-            if (screen === 'screen-settings') {
-                Focus.setZone('playlistList', 0, 0);
-            } else if (screen === 'screen-live') {
-                // A section the pause above has not shown yet: show it now.
-                var section = sectionForRow(Focus.row);
-                if (section && !sameSection(section, state.section)) {
-                    if (state.menuTimer) { clearTimeout(state.menuTimer); state.menuTimer = null; }
-                    state.section = section;
-                    refreshLiveList(true);
-                    markMenu();
-                }
-                if (state.liveList.length) focusLiveList();
-            }
+            if (screen === 'screen-settings') { Focus.setZone('playlistList', 0, 0); return; }
+            if (screen !== 'screen-live') return;
+            if (state.menuMode === 'root' && Focus.row === 0) { openLiveMenu(); return; }
+            // A section the pause above has not shown yet: show it now.
+            var section = sectionForRow(Focus.row);
+            if (!section) return;
+            if (!sameSection(section, state.section)) showSection(section);
+            if (state.liveList.length) focusLiveList();
         }
     };
 
@@ -676,7 +731,7 @@
             case KEYCODE.CH_UP: moveLive(-state.liveRows); break;
             case KEYCODE.CH_DOWN: moveLive(state.liveRows); break;
             case KEYCODE.LEFT: case KEYCODE.BACK:
-                Focus.setZone('sideMenu', currentMenuRow(), 0);
+                enterMenu();
                 break;
             case KEYCODE.ENTER:
                 if (!ch) break;
@@ -2267,7 +2322,9 @@
         if (!document.getElementById('confirmModal').hidden) { hideConfirm(); return; }
         if (activeScreenId() === 'screen-add') { switchToScreen('screen-settings'); return; }
         if (activeScreenId() === 'screen-settings') { switchToScreen('screen-live'); return; }
-        // Live TV with the remote in the menu (Back in the list goes to the menu first).
+        // In Live TV's own menu: back to the main menu.
+        if (Focus.currentZone === 'sideMenu' && state.menuMode === 'live') { closeLiveMenu(); return; }
+        // Live TV with the remote in the main menu (Back in the list goes to the menu first).
         showConfirm('Are you sure you want to exit the app?', 'Exit', exitApp);
     }
 

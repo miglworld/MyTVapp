@@ -60,6 +60,7 @@ button {
 	z-index: 3;
 	width: 300px;
 	margin: 28px 0 28px 28px;
+	align-self: flex-start;
 	border-radius: 38px;
 	display: flex;
 	flex-direction: column;
@@ -132,7 +133,6 @@ button {
 	flex: 1;
 	min-height: 0;
 	overflow: hidden;
-	margin: 14px 0;
 }
 
 .menu-scroll .menu-item {
@@ -142,13 +142,62 @@ button {
 }
 
 .menu-header {
-	font-size: 15px;
+	flex-shrink: 0;
+	font-size: 17px;
 	font-weight: 600;
-	color: #636366;
-	padding: 14px 16px 8px;
+	color: #8e8e93;
+	padding: 18px 18px 10px;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+}
+
+.menu-header[hidden] {
+	display: none;
+}
+
+/* Live TV's own menu takes the main menu's place: a "back" capsule naming
+   where you are, All channels, then the categories. It is as tall as the
+   screen, because the categories can be many. */
+.menu-sub {
+	display: none;
+}
+
+.sidebar.sub {
+	align-self: stretch;
+}
+
+.sidebar.sub .brand,
+.sidebar.sub .menu-root {
+	display: none;
+}
+
+.sidebar.sub .menu-sub {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	min-height: 0;
+}
+
+.menu-item.menu-back {
+	width: auto;
+	align-self: flex-start;
+	padding: 0 24px 0 16px;
+	margin-bottom: 16px;
+	font-weight: 600;
+	color: #ffffff;
+	background: rgba(255, 255, 255, 0.12);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.menu-back-arrow {
+	margin-right: 10px;
+	font-size: 30px;
+	line-height: 1;
+}
+
+.menu-back .menu-icon {
+	margin-right: 12px;
 }
 
 /* ==========================================================================
@@ -224,10 +273,14 @@ html.avplay-active .favorite-btn {
 }
 
 .sidebar.collapsed .brand,
-.sidebar.collapsed .menu-scroll,
+.sidebar.collapsed .menu-sub,
 .sidebar.collapsed .menu-label,
 .sidebar.collapsed .menu-count {
 	display: none;
+}
+
+.sidebar.collapsed .menu-root {
+	display: block;
 }
 
 .sidebar.collapsed .menu-item {

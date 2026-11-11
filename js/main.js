@@ -11,10 +11,17 @@
 })(function () {
     'use strict';
 
+    // Under Node (scripts/test.js) there is no page: hand out the functions
+    // that do not need one and stop here.
+    if (typeof document === 'undefined') {
+        if (typeof module !== 'undefined') module.exports = { parseM3U: parseM3U, versionNewer: versionNewer };
+        return;
+    }
+
     // ==========================================================================
     // Config / constants
     // ==========================================================================
-    var APP_VERSION = '0.9.2';
+    var APP_VERSION = '0.10.0';
     var PLAYLISTS_KEY = 'iptv_playlists';
     var ACTIVE_PLAYLISTS_KEY = 'iptv_active_playlist_id';
     var FAVORITES_KEY = 'iptv_favorites';
@@ -28,12 +35,24 @@
     // from the repo's main branch) and where a downloaded copy is kept. The
     // keys are shared with js/boot.js, which starts a downloaded copy.
     var UPDATE_URL = 'https://miglworld.github.io/MyTvApp/';
+    // Developer mode follows the repo's dev branch instead: test versions
+    // that are not merged into main yet (raw files, cached by GitHub for
+    // about five minutes).
+    var UPDATE_DEV_URL = 'https://raw.githubusercontent.com/miglworld/MyTvApp/dev/';
+    var DEVELOPER_MODE_KEY = 'iptv_developer_mode';
     var UPDATE_KEY = 'mytvapp_update';
     var UPDATE_BAD_KEY = 'mytvapp_update_bad';
     var UPDATE_URL_KEY = 'mytvapp_update_url';   // testing only: another address to update from
     var AUTO_UPDATE_KEY = 'iptv_auto_update';
     var UPDATE_CHECK_DELAY_MS = 3000;
     var UPDATE_RESTART_WINDOW_MS = 25000;
+
+    // Playlist memory: stored copies are used at the start and downloaded
+    // again in the background once they are older than this.
+    var PLAYLIST_DB = 'mytvapp';
+    var PLAYLIST_STORE = 'playlists';
+    var PLAYLIST_MAX_AGE_MS = 6 * 60 * 60 * 1000;
+    var PLAYLIST_REFRESH_DELAY_MS = 4000;
     var LOG_LINES = 14;
     var OVERLAY_HIDE_MS = 5000;
     var TOAST_MS = 3000;
@@ -76,6 +95,7 @@
         playlists: [],
         activePlaylistIds: [],
         channels: [],
+        channelsByPlaylist: {},  // playlist id -> its channels (active playlists only)
         categories: [],          // [{ name, code, channels: [...] }] — grouped by group-title
         activeCategoryIndex: 0,
         favorites: [],
@@ -122,6 +142,11 @@
     var autoUpdate = true;
     try { autoUpdate = localStorage.getItem(AUTO_UPDATE_KEY) !== '0'; } catch (e) { autoUpdate = true; }
     var updateReady = '';   // version downloaded and waiting for the next start
+    // Developer mode (Settings switch, off by default): take test versions
+    // from the dev branch. There the TV follows the branch exactly, to
+    // whatever version it holds, not only to higher ones.
+    var developerMode = false;
+    try { developerMode = localStorage.getItem(DEVELOPER_MODE_KEY) === '1'; } catch (e) { developerMode = false; }
     var bootTime = Date.now();
 
     // Diagnostics: a TV has no console, so the last few events are kept in
@@ -558,89 +583,196 @@
         });
     }
 
-    function fetchPlaylistChannels(pl) {
-        return fetchWithTimeout(pl.url)
-            .then(function (res) { if (!res.ok) throw new Error('HTTP ' + res.status); return res.text(); })
-            .then(function (text) {
-                var parsed = parseM3U(text);
-                if (!parsed.length) throw new Error('No channels found');
-                // Channel number: the playlist's tvg-chno when present, else list position.
-                parsed.forEach(function (ch, i) {
-                    ch.playlistId = pl.id;
-                    ch.playlistName = pl.name;
-                    ch.number = parseInt(ch.chno, 10) || (i + 1);
-                });
-                return parsed;
-            });
+    // --------------------------------------------------------------------------
+    // Playlist memory. The text of every playlist is kept on the TV
+    // (IndexedDB: a full country list is several MB, too big for localStorage).
+    // A start shows the stored copy at once; a copy older than
+    // PLAYLIST_MAX_AGE_MS is downloaded again in the background. Without
+    // IndexedDB everything still works, by downloading on every start.
+    // --------------------------------------------------------------------------
+    var cacheDbPromise = null;
+
+    function openCache() {
+        if (cacheDbPromise) return cacheDbPromise;
+        cacheDbPromise = new Promise(function (resolve) {
+            var done = false;
+            function finish(db) { if (!done) { done = true; resolve(db); } }
+            // Never let the start wait on storage that does not answer.
+            setTimeout(function () { finish(null); }, 2000);
+            try {
+                var req = window.indexedDB.open(PLAYLIST_DB, 1);
+                req.onupgradeneeded = function () { req.result.createObjectStore(PLAYLIST_STORE, { keyPath: 'id' }); };
+                req.onsuccess = function () { finish(req.result); };
+                req.onerror = req.onblocked = function () { finish(null); };
+            } catch (e) { finish(null); }
+        });
+        return cacheDbPromise;
     }
 
-    function refreshActiveChannels(options) {
-        options = options || {};
-        var activePlaylists = state.playlists.filter(function (p) { return state.activePlaylistIds.indexOf(p.id) !== -1; });
-
-        if (!activePlaylists.length) {
-            state.channels = [];
-            rebuildCategories();
-            renderHero();
-            renderFavoritesRow();
-            showLoading(false);
-            if (options.screen) switchToScreen(options.screen);
-            if (options.after) options.after();
-            return;
-        }
-
-        showLoading(true);
-        Promise.all(activePlaylists.map(function (pl) {
-            return fetchPlaylistChannels(pl)
-                .then(function (channels) { return { channels: channels, error: null, name: pl.name }; })
-                .catch(function (err) { return { channels: [], error: err, name: pl.name }; });
-        })).then(function (results) {
-            var allChannels = [];
-            var failures = [];
-            results.forEach(function (r) {
-                if (r.error) failures.push(r.name + ': ' + r.error.message);
-                else allChannels = allChannels.concat(r.channels);
+    // Resolves to { text, time } for this playlist's current URL, or null.
+    function cacheGet(pl) {
+        return openCache().then(function (db) {
+            if (!db) return null;
+            return new Promise(function (resolve) {
+                var done = false;
+                function finish(v) { if (!done) { done = true; resolve(v); } }
+                setTimeout(function () { finish(null); }, 3000);
+                try {
+                    var req = db.transaction(PLAYLIST_STORE, 'readonly').objectStore(PLAYLIST_STORE).get(pl.id);
+                    req.onsuccess = function () {
+                        var e = req.result;
+                        finish(e && e.url === pl.url && e.text ? e : null);
+                    };
+                    req.onerror = function () { finish(null); };
+                } catch (e) { finish(null); }
             });
-            state.channels = allChannels;
-            rebuildCategories();
-            renderHero();
-            renderFavoritesRow();
-            showLoading(false);
-            logEvent('playlists: ' + allChannels.length + ' channels' + (failures.length ? ', failed: ' + failures.join('; ') : ''));
-            if (failures.length) showToast('Could not load ' + failures.join('; '));
-            if (options.screen) switchToScreen(options.screen);
-            if (options.after) options.after();
         });
     }
 
-    // Instantly drops a playlist's channels from the merged list — no
-    // network round-trip needed since the remaining playlists' channels are
-    // already loaded in memory.
-    function removeChannelsForPlaylist(playlistId) {
-        state.channels = state.channels.filter(function (ch) { return ch.playlistId !== playlistId; });
+    function cachePut(pl, text) {
+        openCache().then(function (db) {
+            if (!db) return;
+            try {
+                db.transaction(PLAYLIST_STORE, 'readwrite').objectStore(PLAYLIST_STORE)
+                    .put({ id: pl.id, url: pl.url, text: text, time: Date.now() });
+            } catch (e) { /* non-fatal: the playlist is downloaded again next time */ }
+        });
+    }
+
+    function cacheDelete(playlistId) {
+        openCache().then(function (db) {
+            if (!db) return;
+            try { db.transaction(PLAYLIST_STORE, 'readwrite').objectStore(PLAYLIST_STORE).delete(playlistId); } catch (e) { /* non-fatal */ }
+        });
+    }
+
+    function channelsFromText(pl, text) {
+        var parsed = parseM3U(text);
+        if (!parsed.length) throw new Error('No channels found');
+        // Channel number: the playlist's tvg-chno when present, else list position.
+        parsed.forEach(function (ch, i) {
+            ch.playlistId = pl.id;
+            ch.playlistName = pl.name;
+            ch.number = parseInt(ch.chno, 10) || (i + 1);
+        });
+        return parsed;
+    }
+
+    // Downloads a playlist, stores its text and resolves to { channels, text }.
+    function downloadPlaylist(pl) {
+        return fetchWithTimeout(pl.url)
+            .then(function (res) { if (!res.ok) throw new Error('HTTP ' + res.status); return res.text(); })
+            .then(function (text) {
+                var channels = channelsFromText(pl, text);
+                cachePut(pl, text);
+                return { channels: channels, text: text };
+            });
+    }
+
+    // state.channels is always the active playlists' channels, in the order
+    // the playlists are listed in Settings.
+    function rebuildChannels() {
+        var all = [];
+        state.playlists.forEach(function (pl) {
+            var list = state.channelsByPlaylist[pl.id];
+            if (list && state.activePlaylistIds.indexOf(pl.id) !== -1) all = all.concat(list);
+        });
+        state.channels = all;
         rebuildCategories();
         renderHero();
         renderFavoritesRow();
     }
 
-    // Fetches one playlist and merges its channels in, replacing any it
-    // already contributed (e.g. re-activating it, or after editing its URL).
+    // Start of the app: every active playlist comes from its stored copy when
+    // there is one, otherwise from the network. One bad playlist shows an
+    // error for itself without blanking out the others.
+    function refreshActiveChannels(options) {
+        options = options || {};
+        var activePlaylists = state.playlists.filter(function (p) { return state.activePlaylistIds.indexOf(p.id) !== -1; });
+        state.channelsByPlaylist = {};
+
+        function show() {
+            rebuildChannels();
+            showLoading(false);
+            if (options.screen) switchToScreen(options.screen);
+            if (options.after) options.after();
+        }
+
+        if (!activePlaylists.length) { show(); return; }
+
+        showLoading(true);
+        Promise.all(activePlaylists.map(function (pl) {
+            return cacheGet(pl).then(function (hit) {
+                if (hit) {
+                    try { return { pl: pl, channels: channelsFromText(pl, hit.text), cached: hit }; } catch (e) { /* unusable copy: download */ }
+                }
+                return downloadPlaylist(pl).then(function (r) { return { pl: pl, channels: r.channels }; });
+            }).catch(function (err) { return { pl: pl, channels: [], error: err }; });
+        })).then(function (results) {
+            var failures = [];
+            var total = 0;
+            var stored = 0;
+            results.forEach(function (r) {
+                if (r.error) { failures.push(r.pl.name + ': ' + r.error.message); return; }
+                state.channelsByPlaylist[r.pl.id] = r.channels;
+                total += r.channels.length;
+                if (r.cached) stored++;
+            });
+            logEvent('playlists: ' + total + ' channels' + (stored ? ' (' + stored + ' from memory)' : '') +
+                (failures.length ? ', failed: ' + failures.join('; ') : ''));
+            show();
+            if (failures.length) showToast('Could not load ' + failures.join('; '));
+
+            // Stored copies that are getting old: fetch a fresh one, a little
+            // after the start so it does not compete with the first screen.
+            results.forEach(function (r) {
+                if (r.cached && Date.now() - r.cached.time > PLAYLIST_MAX_AGE_MS) {
+                    setTimeout(function () { refreshInBackground(r.pl, r.cached.text); }, PLAYLIST_REFRESH_DELAY_MS);
+                }
+            });
+        });
+    }
+
+    // Replaces a playlist's channels with a fresh download. The new list is
+    // shown right away only on the home or settings screen; while someone is
+    // browsing or watching it waits for the next start (it is stored already).
+    function refreshInBackground(pl, oldText) {
+        downloadPlaylist(pl).then(function (r) {
+            if (r.text === oldText) { logEvent('playlist "' + pl.name + '": no changes'); return; }
+            var screen = activeScreenId();
+            var idle = (screen === 'screen-grid' || screen === 'screen-settings') && !state.nowPlaying &&
+                state.activePlaylistIds.indexOf(pl.id) !== -1;
+            if (!idle) { logEvent('playlist "' + pl.name + '" refreshed: shows on the next start'); return; }
+            state.channelsByPlaylist[pl.id] = r.channels;
+            rebuildChannels();
+            if (screen === 'screen-grid') Focus.apply();
+            logEvent('playlist "' + pl.name + '" refreshed: ' + r.channels.length + ' channels');
+        }).catch(function (err) {
+            logEvent('playlist "' + pl.name + '" refresh failed: ' + ((err && err.message) || err));
+        });
+    }
+
+    // Instantly drops a playlist's channels from the merged list (switched
+    // off or deleted). Its stored copy stays, for when it is switched on again.
+    function removeChannelsForPlaylist(playlistId) {
+        delete state.channelsByPlaylist[playlistId];
+        rebuildChannels();
+    }
+
+    // Downloads one playlist now and merges its channels in, replacing any it
+    // already contributed (switching it on, editing its URL, "Reload").
+    // Resolves to null, or to the error. On an error the channels it already
+    // had stay as they are.
     function loadChannelsForPlaylist(pl) {
         showLoading(true);
-        return fetchPlaylistChannels(pl)
-            .then(function (channels) {
-                state.channels = state.channels.filter(function (ch) { return ch.playlistId !== pl.id; }).concat(channels);
-                rebuildCategories();
-                renderHero();
-                renderFavoritesRow();
+        return downloadPlaylist(pl)
+            .then(function (r) {
+                state.channelsByPlaylist[pl.id] = r.channels;
+                rebuildChannels();
                 showLoading(false);
                 return null;
             })
             .catch(function (err) {
-                state.channels = state.channels.filter(function (ch) { return ch.playlistId !== pl.id; });
-                rebuildCategories();
-                renderHero();
-                renderFavoritesRow();
                 showLoading(false);
                 return err;
             });
@@ -1011,10 +1143,50 @@
                 renderPlaylistList();
                 renderAppVersion();
                 Focus.setZone('playlistList', Focus.row, 0);
-                if (autoUpdate) checkForUpdate();
+                if (autoUpdate) checkForUpdate(true);
                 else showToast('Automatic updates off. The built-in version ' + window.MYTVAPP_BUNDLED + ' runs from the next start');
             });
             list.appendChild(updateRow);
+
+            var checkRow = document.createElement('button');
+            checkRow.className = 'playlist-row add-row option-row second';
+            checkRow.tabIndex = -1;
+            checkRow.textContent = 'Check for updates now';
+            checkRow.addEventListener('click', function () {
+                showToast('Checking for updates\u2026');
+                checkForUpdate(true);
+            });
+            list.appendChild(checkRow);
+
+            var devRow = document.createElement('button');
+            devRow.className = 'playlist-row add-row option-row second';
+            devRow.tabIndex = -1;
+            devRow.textContent = 'Developer mode (test versions from the dev branch): ' + (developerMode ? 'On' : 'Off');
+            devRow.addEventListener('click', function () {
+                developerMode = !developerMode;
+                try {
+                    localStorage.setItem(DEVELOPER_MODE_KEY, developerMode ? '1' : '0');
+                    // Off: forget the test version. The next start runs the
+                    // package's own version, which then updates to the released one.
+                    if (!developerMode) { localStorage.removeItem(UPDATE_KEY); updateReady = ''; }
+                } catch (e) { /* non-fatal */ }
+                logEvent('developer mode ' + (developerMode ? 'on' : 'off'));
+                renderPlaylistList();
+                renderAppVersion();
+                Focus.setZone('playlistList', Focus.row, 0);
+                if (developerMode) { showToast('Developer mode on: checking the dev branch\u2026'); checkForUpdate(true); }
+                else showToast('Developer mode off: restart the app to return to the released version');
+            });
+            list.appendChild(devRow);
+        }
+
+        if (state.activePlaylistIds.length) {
+            var reloadRow = document.createElement('button');
+            reloadRow.className = 'playlist-row add-row option-row second';
+            reloadRow.tabIndex = -1;
+            reloadRow.textContent = 'Reload playlists now';
+            reloadRow.addEventListener('click', reloadAllPlaylists);
+            list.appendChild(reloadRow);
         }
 
         // Diagnostics log (a row so that Down scrolls it into view). OK refreshes it.
@@ -1029,6 +1201,20 @@
         list.appendChild(logRow);
     }
 
+    // Settings "Reload playlists now": download every active playlist again,
+    // one after another, instead of waiting for the stored copies to age.
+    function reloadAllPlaylists() {
+        var active = state.playlists.filter(function (p) { return state.activePlaylistIds.indexOf(p.id) !== -1; });
+        var failed = [];
+        active.reduce(function (chain, pl) {
+            return chain.then(function () { return loadChannelsForPlaylist(pl); })
+                .then(function (err) { if (err) failed.push(pl.name + ': ' + err.message); });
+        }, Promise.resolve()).then(function () {
+            logEvent('playlists reloaded' + (failed.length ? ', failed: ' + failed.join('; ') : ''));
+            showToast(failed.length ? 'Could not reload ' + failed.join('; ') : 'Playlists reloaded');
+        });
+    }
+
     // Which copy is running: loaded from GitHub by the launcher, the bundled
     // copy in the installed package, or a TizenBrew module.
     function renderAppVersion() {
@@ -1039,7 +1225,8 @@
         if (!source) source = location.protocol.indexOf('http') === 0 ? 'web / TizenBrew module' : 'installed package';
         var player = hasAvplay ? 'Samsung player available' : 'Samsung player not available';
         var update = updateReady ? ' \u00b7 update ' + updateReady + ' ready: restart the app' : '';
-        document.getElementById('appVersion').textContent = 'MyTvApp ' + APP_VERSION + ' \u00b7 running from ' + source + ' \u00b7 ' + player + update;
+        var dev = developerMode ? ' \u00b7 developer mode' : '';
+        document.getElementById('appVersion').textContent = 'MyTvApp ' + APP_VERSION + ' \u00b7 running from ' + source + ' \u00b7 ' + player + dev + update;
     }
 
     // ==========================================================================
@@ -1072,22 +1259,34 @@
         });
     }
 
-    function checkForUpdate() {
-        if (!autoUpdate || !updatesPossible()) return;
-        var base = UPDATE_URL;
-        try { base = localStorage.getItem(UPDATE_URL_KEY) || UPDATE_URL; } catch (e) { base = UPDATE_URL; }
+    // manual: started from Settings, so it reports back and may restart at once.
+    function checkForUpdate(manual) {
+        if (!updatesPossible() || (!autoUpdate && !manual)) return;
+        var base = developerMode ? UPDATE_DEV_URL : UPDATE_URL;
+        try { base = localStorage.getItem(UPDATE_URL_KEY) || base; } catch (e) { /* keep base */ }
+        var channel = developerMode ? 'dev branch' : 'main';
         var version = '';
 
         fetchUpdateText(base + 'package.json?t=' + Date.now()).then(function (text) {
             version = String(JSON.parse(text).version || '');
-            if (!versionNewer(version, APP_VERSION)) {
-                logEvent('update check: ' + APP_VERSION + ' is current');
+            var wanted = developerMode ? (version !== '' && version !== APP_VERSION) : versionNewer(version, APP_VERSION);
+            // js/boot.js only starts a download that is newer than the
+            // package itself; anything else would be fetched again and again.
+            if (wanted && !versionNewer(version, window.MYTVAPP_BUNDLED)) {
+                logEvent('update check (' + channel + '): ' + version + ' is not newer than the installed package ' + window.MYTVAPP_BUNDLED);
+                if (manual) showToast('Version ' + version + ' is not newer than the installed package');
+                return null;
+            }
+            if (!wanted) {
+                logEvent('update check (' + channel + '): ' + APP_VERSION + ' is current');
+                if (manual) showToast('MyTvApp ' + APP_VERSION + ' is the current version');
                 return null;
             }
             var bad = null;
             try { bad = localStorage.getItem(UPDATE_BAD_KEY); } catch (e) { bad = null; }
             if (bad === version) {
                 logEvent('update ' + version + ' skipped: it failed to start before');
+                if (manual) showToast('Version ' + version + ' failed to start before and is skipped');
                 return null;
             }
             var v = '?v=' + encodeURIComponent(version);
@@ -1111,19 +1310,20 @@
             // start (js/boot.js) must not be held against the new download.
             localStorage.removeItem('mytvapp_update_pending');
             updateReady = version;
-            logEvent('update ' + version + ' downloaded');
-            applyUpdateOrAnnounce(version);
+            logEvent('update ' + version + ' downloaded (' + channel + ')');
+            applyUpdateOrAnnounce(version, manual);
         }).catch(function (err) {
-            logEvent('update check failed: ' + ((err && err.message) || err));
+            logEvent('update check failed (' + channel + '): ' + ((err && err.message) || err));
+            if (manual) showToast('Update check failed: ' + ((err && err.message) || err));
         });
     }
 
     // Right after the start, with nobody in the middle of something, restart
     // into the update at once. Otherwise it waits for the next start.
-    function applyUpdateOrAnnounce(version) {
+    function applyUpdateOrAnnounce(version, manual) {
         var idle = activeScreenId() !== 'screen-player' && activeScreenId() !== 'screen-add' &&
             document.getElementById('confirmModal').hidden && !state.nowPlaying;
-        if (idle && Date.now() - bootTime < UPDATE_RESTART_WINDOW_MS) {
+        if (idle && (manual || Date.now() - bootTime < UPDATE_RESTART_WINDOW_MS)) {
             showToast('Updating to ' + version + '\u2026');
             setTimeout(function () { location.reload(); }, 1500);
         } else {
@@ -1192,6 +1392,7 @@
             }
 
             removeChannelsForPlaylist(pl.id);
+            cacheDelete(pl.id);
             renderPlaylistList();
             Focus.setZone('playlistList', Focus.row, 0);
             showToast('Playlist removed');

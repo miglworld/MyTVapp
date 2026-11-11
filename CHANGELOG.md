@@ -2,6 +2,9 @@
 
 MyTvApp's own history starts at v0.1. Newest first. Each entry also names the version number the app showed at the time.
 
+## v0.8.2 (2026-11-11)
+- The package starts the app directly from its own files again, as 1.4.2 did, instead of going through the launcher. Packages that started through the launcher showed a black screen on the TV. Updating means installing the newer package.
+
 ## v0.8.1 (2026-11-11)
 - The Samsung player is no longer asked for picture size and bitrate from inside its own callbacks, which could freeze it and leave the screen black. Picture info is read only when Right/INFO is pressed.
 - The app starts on its home screen. Reopening the last channel at start is now a switch in Settings (off by default), and it skips a channel that did not start the time before.

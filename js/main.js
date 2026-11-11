@@ -11,36 +11,37 @@ document.addEventListener('DOMContentLoaded', function () {
     var TOAST_MS = 3000;
     var FETCH_TIMEOUT_MS = 15000;
 
-    // Bundled locally (playlists/index.country.m3u) rather than fetched from
-    // iptv-org.github.io at runtime — the channel list then works even when
-    // the device/simulator has no route to that host. Individual channel
-    // streams still play from their own (live, external) servers, same as
-    // any playlist.
-    var DEFAULT_PLAYLIST = { id: 'default', name: 'IPTV-ORG Countries', url: 'playlists/index.country.m3u' };
+    // The bundled 14k-channel playlist was removed from the package. The ids/
+    // URLs below identify it so older installs can drop the stale entry.
+    var LEGACY_BUILTIN_ID = 'default';
+    var LEGACY_BUILTIN_URL = 'playlists/index.country.m3u';
 
-    var IPTV_ORG_URL = 'https://iptv-org.github.io/iptv/index.country.m3u';
-
-    // Custom D-pad keyboard (not the Tizen IME). Query-string characters
-    // (?&=%) must sit on this always-visible punctuation row — IPTV playlist
-    // URLs almost always look like .../get.php?username=...&password=...
-    var KEYBOARD_ROWS = [
-        ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
-        ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
-        ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
-        ['z', 'x', 'c', 'v', 'b', 'n', 'm'],
-        [':', '/', '.', '-', '_', '?', '&', '=', '%', '@', '#', '+'],
-        [{ label: 'SPACE', action: 'space', wide: 'extra-wide' },
-         { label: 'DEL', action: 'backspace', wide: 'wide' },
-         { label: 'CLEAR', action: 'clear', wide: 'wide' },
-         { label: 'DONE', action: 'done', wide: 'wide' }]
+    // One-press presets on the Playlists screen (iptv-org public playlists).
+    var PRESET_PLAYLISTS = [
+        { name: 'IPTV-ORG Portugal', url: 'https://iptv-org.github.io/iptv/countries/pt.m3u' },
+        { name: 'IPTV-ORG All Countries', url: 'https://iptv-org.github.io/iptv/index.country.m3u' }
     ];
+
+    // Channel tiles are rendered in batches: categories in big playlists hold
+    // 1,000-2,000 channels, and building every tile (plus loading every logo)
+    // at once stalls a TV browser. More tiles are appended as focus nears the end.
+    var CHANNEL_BATCH = 60;
+
+    // Playback error handling limits — a dead stream gives up with a message
+    // instead of retrying forever.
+    var MAX_NETWORK_RETRIES = 3;
+    var MAX_MEDIA_RECOVERIES = 2;
+
+    // Samsung IME key codes (developer.samsung.com keyboard/IME guide).
+    var IME_DONE = 65376;
+    var IME_CANCEL = 65385;
 
     // ==========================================================================
     // State
     // ==========================================================================
     var state = {
         playlists: [],
-        activePlaylistIds: [DEFAULT_PLAYLIST.id],
+        activePlaylistIds: [],
         channels: [],
         categories: [],          // [{ name, code, channels: [...] }] — grouped by group-title
         activeCategoryIndex: 0,
@@ -51,7 +52,14 @@ document.addEventListener('DOMContentLoaded', function () {
         hls: null,
         overlayTimeoutId: null,
         toastTimeoutId: null,
-        keyboardBuffer: 'http://'
+        renderedChannelCount: 0,
+        playToken: 0,
+        isPlaying: false,
+        engine: null,
+        enginesLeft: [],
+        playErrors: [],
+        playFailed: false,
+        watchdogId: null
     };
 
     var editingPlaylistId = null;
@@ -108,6 +116,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 el.classList.add('focused');
                 el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
             }
+            var zone = this.zones[this.currentZone];
+            if (zone && zone.afterApply) zone.afterApply(this.row, matrix.length);
         },
 
         move: function (dir) {
@@ -178,8 +188,7 @@ document.addEventListener('DOMContentLoaded', function () {
     function currentRailRow() {
         if (document.getElementById('screen-categories').classList.contains('active') ||
             document.getElementById('screen-category-channels').classList.contains('active')) return 1;
-        if (document.getElementById('screen-donate').classList.contains('active')) return 2;
-        if (document.getElementById('screen-settings').classList.contains('active')) return 3;
+        if (document.getElementById('screen-settings').classList.contains('active')) return 2;
         return 0;
     }
 
@@ -246,7 +255,6 @@ document.addEventListener('DOMContentLoaded', function () {
         showScreen(id);
         document.getElementById('navHome').classList.toggle('active', id === 'screen-grid');
         document.getElementById('navCategories').classList.toggle('active', id === 'screen-categories' || id === 'screen-category-channels');
-        document.getElementById('navDonate').classList.toggle('active', id === 'screen-donate');
         document.getElementById('navSettings').classList.toggle('active', id === 'screen-settings');
 
         if (id === 'screen-grid') {
@@ -254,8 +262,6 @@ document.addEventListener('DOMContentLoaded', function () {
         } else if (id === 'screen-categories') {
             renderCategoriesScreen();
             Focus.setZone(state.categories.length ? 'categoriesGrid' : 'iconRail', state.categories.length ? 0 : 1, 0);
-        } else if (id === 'screen-donate') {
-            Focus.setZone('iconRail', 2, 0);
         } else if (id === 'screen-settings') {
             renderPlaylistList();
             Focus.setZone('playlistList', 0, 0);
@@ -264,12 +270,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.getElementById('navHome').addEventListener('click', function () { switchToScreen('screen-grid'); });
     document.getElementById('navCategories').addEventListener('click', function () { switchToScreen('screen-categories'); });
-    document.getElementById('navDonate').addEventListener('click', function () { switchToScreen('screen-donate'); });
     document.getElementById('navSettings').addEventListener('click', function () { switchToScreen('screen-settings'); });
 
     Focus.zones.iconRail = {
         getMatrix: function () {
-            return [[document.getElementById('navHome')], [document.getElementById('navCategories')], [document.getElementById('navDonate')], [document.getElementById('navSettings')]];
+            return [[document.getElementById('navHome')], [document.getElementById('navCategories')], [document.getElementById('navSettings')]];
         },
         onEdge: function (dir) {
             if (dir !== 'right') return;
@@ -279,8 +284,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 Focus.setZone('categoryChannelsGrid', 0, 0);
             } else if (document.getElementById('screen-settings').classList.contains('active')) {
                 Focus.setZone('playlistList', 0, 0);
-            } else if (document.getElementById('screen-donate').classList.contains('active')) {
-                // no focusable content on the donate screen besides the rail
             } else if (visibleFavorites().length) {
                 Focus.setZone('favoritesRow', 0, 0);
             }
@@ -352,25 +355,21 @@ document.addEventListener('DOMContentLoaded', function () {
     function loadPlaylistsFromStorage() {
         var stored = null;
         try { stored = JSON.parse(localStorage.getItem(PLAYLISTS_KEY) || 'null'); } catch (e) { stored = null; }
-        state.playlists = (stored && stored.length) ? stored : [DEFAULT_PLAYLIST];
+        state.playlists = (stored && stored.length) ? stored : [];
 
-        // The built-in entry (id === DEFAULT_PLAYLIST.id) always tracks the
-        // current default URL — a device that ran an older build with a
-        // different built-in URL would otherwise keep loading that stale
-        // playlist forever, since it's indistinguishable from a user's own
-        // saved playlist once it's in storage.
-        var builtIn = state.playlists.find(function (p) { return p.id === DEFAULT_PLAYLIST.id; });
-        if (builtIn && builtIn.url !== DEFAULT_PLAYLIST.url) {
-            builtIn.url = DEFAULT_PLAYLIST.url;
-            builtIn.name = DEFAULT_PLAYLIST.name;
-            savePlaylists();
-        }
+        // Drop the old bundled playlist entry left in storage by earlier builds —
+        // its file no longer exists in the package, so it would only ever fail.
+        var before = state.playlists.length;
+        state.playlists = state.playlists.filter(function (p) {
+            return p.id !== LEGACY_BUILTIN_ID && p.url !== LEGACY_BUILTIN_URL;
+        });
+        if (state.playlists.length !== before) savePlaylists();
 
         var raw = null;
         try { raw = localStorage.getItem(ACTIVE_PLAYLISTS_KEY); } catch (e) { raw = null; }
         var storedActive;
         if (raw === null) {
-            storedActive = [DEFAULT_PLAYLIST.id];
+            storedActive = [];
         } else {
             try {
                 var parsed = JSON.parse(raw);
@@ -533,7 +532,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function visibleFavorites() {
         return state.favorites.filter(function (f) {
-            return !f.playlistId || state.activePlaylistIds.indexOf(f.playlistId) !== -1;
+            if (!f.playlistId || state.activePlaylistIds.indexOf(f.playlistId) !== -1) return true;
+            // Favorites whose playlist no longer exists (e.g. the removed built-in
+            // list) keep their direct stream URL, so they stay visible and playable.
+            return !state.playlists.some(function (p) { return p.id === f.playlistId; });
         });
     }
 
@@ -623,17 +625,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
         var section = null;
         var lastPlaylistId = null;
+        var frag = document.createDocumentFragment();
         state.categories.forEach(function (cat, i) {
             if (cat.playlistId !== lastPlaylistId) {
                 lastPlaylistId = cat.playlistId;
                 var header = document.createElement('div');
                 header.className = 'category-section-header';
                 header.textContent = cat.playlistName || 'Playlist';
-                grid.appendChild(header);
+                frag.appendChild(header);
 
                 section = document.createElement('div');
                 section.className = 'category-section-grid';
-                grid.appendChild(section);
+                frag.appendChild(section);
             }
 
             var row = document.createElement('button');
@@ -658,6 +661,7 @@ document.addEventListener('DOMContentLoaded', function () {
             row.addEventListener('click', function () { openCategoryChannels(i); });
             section.appendChild(row);
         });
+        grid.appendChild(frag);
     }
 
     Focus.zones.categoriesGrid = {
@@ -681,14 +685,35 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('categoryChannelsTitle').textContent = cat ? cat.name + ' Channels' : 'Channels';
         var grid = document.getElementById('categoryChannelsGrid');
         grid.innerHTML = '';
+        state.renderedChannelCount = 0;
         if (!cat) return;
-        cat.channels.forEach(function (ch) {
-            grid.appendChild(buildChannelTile(ch, function () { playChannel(ch, 'category'); }));
-        });
+        appendChannelBatch();
+    }
+
+    function appendChannelBatch() {
+        var cat = state.categories[state.activeCategoryIndex];
+        if (!cat) return false;
+        var start = state.renderedChannelCount;
+        var end = Math.min(start + CHANNEL_BATCH, cat.channels.length);
+        if (start >= end) return false;
+        var grid = document.getElementById('categoryChannelsGrid');
+        var frag = document.createDocumentFragment();
+        for (var i = start; i < end; i++) {
+            (function (ch) {
+                frag.appendChild(buildChannelTile(ch, function () { playChannel(ch, 'category'); }));
+            })(cat.channels[i]);
+        }
+        grid.appendChild(frag);
+        state.renderedChannelCount = end;
+        return true;
     }
 
     Focus.zones.categoryChannelsGrid = {
-        getMatrix: function () { return rowsByLayout(Array.prototype.slice.call(document.querySelectorAll('#categoryChannelsGrid .channel-tile'))); }
+        getMatrix: function () { return rowsByLayout(Array.prototype.slice.call(document.querySelectorAll('#categoryChannelsGrid .channel-tile'))); },
+        // Load the next batch when focus reaches the last two rendered rows.
+        afterApply: function (row, rowCount) {
+            if (row >= rowCount - 2) appendChannelBatch();
+        }
     };
     leftEdgeToRail('categoryChannelsGrid');
 
@@ -803,14 +828,15 @@ document.addEventListener('DOMContentLoaded', function () {
         addRow.addEventListener('click', function () { openAddPlaylistScreen(null); });
         list.appendChild(addRow);
 
-        if (!state.playlists.some(function (p) { return p.url === IPTV_ORG_URL; })) {
-            var openChannelsRow = document.createElement('button');
-            openChannelsRow.className = 'playlist-row add-row';
-            openChannelsRow.tabIndex = -1;
-            openChannelsRow.textContent = '+ Add IPTV-ORG Open Channels';
-            openChannelsRow.addEventListener('click', addIptvOrgPlaylist);
-            list.appendChild(openChannelsRow);
-        }
+        PRESET_PLAYLISTS.forEach(function (preset) {
+            if (state.playlists.some(function (p) { return p.url === preset.url; })) return;
+            var presetRow = document.createElement('button');
+            presetRow.className = 'playlist-row add-row';
+            presetRow.tabIndex = -1;
+            presetRow.textContent = '+ Add ' + preset.name;
+            presetRow.addEventListener('click', function () { addPresetPlaylist(preset); });
+            list.appendChild(presetRow);
+        });
     }
 
     Focus.zones.playlistList = {
@@ -845,8 +871,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    function addIptvOrgPlaylist() {
-        var newPl = { id: 'pl_' + Date.now(), name: deriveNameFromUrl(IPTV_ORG_URL), url: IPTV_ORG_URL };
+    function addPresetPlaylist(preset) {
+        var newPl = { id: 'pl_' + Date.now(), name: preset.name, url: preset.url };
         state.playlists.push(newPl);
         state.activePlaylistIds.push(newPl.id);
         savePlaylists();
@@ -859,7 +885,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function removePlaylist(pl) {
-        if (state.playlists.length <= 1) { showToast('You need at least one playlist'); return; }
         showConfirm('Remove "' + pl.name + '"?', 'Delete', function () {
             state.playlists = state.playlists.filter(function (p) { return p.id !== pl.id; });
             state.activePlaylistIds = state.activePlaylistIds.filter(function (id) { return id !== pl.id; });
@@ -881,50 +906,36 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // ==========================================================================
-    // Add / Edit Playlist screen (on-screen keyboard)
+    // Add / Edit Playlist screen (native text field + Samsung system keyboard)
     // ==========================================================================
+    var urlInput = document.getElementById('urlInput');
+
     function openAddPlaylistScreen(playlist) {
         editingPlaylistId = playlist ? playlist.id : null;
-        state.keyboardBuffer = playlist ? playlist.url : 'http://';
+        urlInput.value = playlist ? playlist.url : 'https://';
         document.getElementById('addPlaylistTitle').textContent = playlist ? 'Edit Playlist' : 'Add M3U Playlist';
-        updateUrlDisplay();
         showScreen('screen-add');
-        Focus.setZone('keyboard', 0, 0);
+        Focus.setZone('urlField', 0, 0);
     }
 
-    function updateUrlDisplay() {
-        document.getElementById('urlText').textContent = state.keyboardBuffer;
+    // Focusing a real <input> opens Samsung's system keyboard (IME). That
+    // system keyboard is also what the SmartThings phone app types into.
+    function openUrlKeyboard() {
+        urlInput.focus();
+        try { urlInput.setSelectionRange(urlInput.value.length, urlInput.value.length); } catch (e) { /* type=url may not support it */ }
     }
 
-    function buildKeyboard() {
-        var container = document.getElementById('keyboard');
-        container.innerHTML = '';
-        KEYBOARD_ROWS.forEach(function (row) {
-            var rowEl = document.createElement('div');
-            rowEl.className = 'keyboard-row';
-            row.forEach(function (keyDef) {
-                var isObj = typeof keyDef === 'object';
-                var btn = document.createElement('button');
-                btn.className = 'key' + (isObj && keyDef.wide ? ' ' + keyDef.wide : '');
-                btn.textContent = isObj ? keyDef.label : keyDef;
-                btn.tabIndex = -1;
-                btn.addEventListener('click', function () {
-                    if (!isObj) state.keyboardBuffer += keyDef;
-                    else if (keyDef.action === 'space') state.keyboardBuffer += ' ';
-                    else if (keyDef.action === 'backspace') state.keyboardBuffer = state.keyboardBuffer.slice(0, -1);
-                    else if (keyDef.action === 'clear') state.keyboardBuffer = '';
-                    else if (keyDef.action === 'done') { submitPlaylistUrl(); return; }
-                    updateUrlDisplay();
-                });
-                rowEl.appendChild(btn);
-            });
-            container.appendChild(rowEl);
-        });
+    function closeUrlKeyboard(moveToSave) {
+        urlInput.blur();
+        if (moveToSave) Focus.setZone('addActions', 0, 0);
+        else Focus.setZone('urlField', 0, 0);
     }
+
+    urlInput.addEventListener('click', openUrlKeyboard);
 
     function submitPlaylistUrl() {
-        var url = state.keyboardBuffer.trim();
-        if (!url || url === 'http://' || url === 'https://') { showToast('Enter a valid playlist URL first'); return; }
+        var url = urlInput.value.trim();
+        if (!/^https?:\/\/\S+\.\S+/i.test(url)) { showToast('Enter a valid playlist URL first'); return; }
 
         if (editingPlaylistId) {
             var pl = state.playlists.find(function (p) { return p.id === editingPlaylistId; });
@@ -953,16 +964,13 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    Focus.zones.keyboard = {
-        getMatrix: function () {
-            var rows = document.querySelectorAll('#keyboard .keyboard-row');
-            return Array.prototype.map.call(rows, function (r) { return Array.prototype.slice.call(r.querySelectorAll('.key')); });
-        },
+    Focus.zones.urlField = {
+        getMatrix: function () { return [[urlInput]]; },
         onEdge: function (dir) { if (dir === 'down') Focus.setZone('addActions', 0, 0); }
     };
     Focus.zones.addActions = {
         getMatrix: function () { return [Array.prototype.slice.call(document.querySelectorAll('.add-actions .btn'))]; },
-        onEdge: function (dir) { if (dir === 'up') Focus.setZone('keyboard', KEYBOARD_ROWS.length - 1, 0); }
+        onEdge: function (dir) { if (dir === 'up') Focus.setZone('urlField', 0, 0); }
     };
 
     document.getElementById('loadPlaylistBtn').addEventListener('click', submitPlaylistUrl);
@@ -991,13 +999,33 @@ document.addEventListener('DOMContentLoaded', function () {
         playChannel(list[idx], state.zapContext);
     }
 
+    // Playback strategy: on a Samsung TV, use the TV's built-in player first
+    // (plain <video src>). It decodes HLS natively and is not subject to the
+    // cross-origin (CORS) rules that hls.js's network requests are, which is
+    // why other TV players can play streams that hls.js cannot. hls.js is the
+    // second engine; off-TV (browser testing) the order is reversed. If an
+    // engine errors or shows no video within PLAY_WATCHDOG_MS, the next one is tried.
+    var PLAY_WATCHDOG_MS = 12000;
+    var isTizen = !!(window.tizen);
+
+    function setPlayerStatus(msg) {
+        document.getElementById('playerStatus').textContent = msg;
+    }
+
+    function stopEngines() {
+        if (state.watchdogId) { clearTimeout(state.watchdogId); state.watchdogId = null; }
+        if (state.hls) { state.hls.destroy(); state.hls = null; }
+        videoPlayer.removeAttribute('src');
+        videoPlayer.load();
+    }
+
     function startPlayback() {
         var ch = state.nowPlaying;
         if (!ch) return;
 
-        if (state.hls) { state.hls.destroy(); state.hls = null; }
-        videoPlayer.removeAttribute('src');
-        videoPlayer.load();
+        stopEngines();
+        state.playToken = (state.playToken || 0) + 1;
+        state.isPlaying = false;
 
         document.getElementById('nowPlayingName').textContent = ch.name;
         document.getElementById('nowPlayingGroup').textContent = ch.group || '';
@@ -1005,27 +1033,135 @@ document.addEventListener('DOMContentLoaded', function () {
         logoEl.style.backgroundImage = ch.logo ? ('url(' + JSON.stringify(ch.logo) + ')') : '';
         updateFavoriteButton();
 
-        if (Hls.isSupported()) {
-            state.hls = new Hls();
-            state.hls.loadSource(ch.url);
-            state.hls.attachMedia(videoPlayer);
-            state.hls.on(Hls.Events.MANIFEST_PARSED, function () { videoPlayer.play(); });
-            state.hls.on(Hls.Events.ERROR, function (event, data) {
-                console.error('HLS.js error:', data);
-                if (!data.fatal) return;
-                if (data.type === Hls.ErrorTypes.NETWORK_ERROR) state.hls.startLoad();
-                else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) state.hls.recoverMediaError();
-                else showToast('This channel could not be played');
-            });
-        } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
-            videoPlayer.src = ch.url;
-            videoPlayer.addEventListener('loadedmetadata', function () { videoPlayer.play(); }, { once: true });
-        } else {
-            showToast('HLS is not supported on this device');
-        }
-
+        var hlsOk = !!(window.Hls && Hls.isSupported());
+        var engines = isTizen ? ['native', 'hls'] : ['hls', 'native'];
+        state.enginesLeft = engines.filter(function (e) { return e !== 'hls' || hlsOk; });
+        state.playErrors = [];
+        state.playFailed = false;
         showOverlay();
+        tryNextEngine(state.playToken);
     }
+
+    function tryNextEngine(token) {
+        if (token !== state.playToken) return;
+        var ch = state.nowPlaying;
+        var engine = state.enginesLeft.shift();
+        stopEngines();
+        if (!engine) {
+            state.playFailed = true;
+            setPlayerStatus('Could not play \u2014 ' + (state.playErrors.join(' | ') || 'no player available'));
+            showToast('This channel is unavailable right now');
+            return;
+        }
+        state.engine = engine;
+        state.watchdogId = setTimeout(function () {
+            if (token !== state.playToken || state.isPlaying) return;
+            engineFailed(token, engineLabel(engine) + ': no video after ' + (PLAY_WATCHDOG_MS / 1000) + ' s');
+        }, PLAY_WATCHDOG_MS);
+
+        if (engine === 'native') startNative(ch, token);
+        else startHls(ch, token);
+    }
+
+    function engineLabel(engine) { return engine === 'native' ? 'TV player' : 'hls.js'; }
+
+    function engineFailed(token, reason) {
+        if (token !== state.playToken || state.isPlaying) return;
+        console.error('Playback engine failed:', reason);
+        state.playErrors.push(reason);
+        if (state.enginesLeft.length) setPlayerStatus(reason + ' — trying ' + engineLabel(state.enginesLeft[0]) + '…');
+        tryNextEngine(token);
+    }
+
+    function safePlay(token) {
+        var p = videoPlayer.play();
+        if (p && p.catch) p.catch(function (e) {
+            if (token === state.playToken && !state.isPlaying && !state.playFailed) setPlayerStatus(engineLabel(state.engine) + ': play() refused (' + (e && e.name || 'error') + ')');
+        });
+    }
+
+    function startNative(ch, token) {
+        setPlayerStatus('Connecting (TV player)…');
+        videoPlayer.src = ch.url;
+        videoPlayer.load();
+        safePlay(token);
+    }
+
+    function startHls(ch, token) {
+        setPlayerStatus('Connecting (hls.js)…');
+        // Local reference: callbacks from an earlier attempt must not act on a newer one.
+        var hls = new Hls({ backBufferLength: 30 });
+        var networkRetries = 0;
+        var mediaRecoveries = 0;
+        state.hls = hls;
+        hls.loadSource(ch.url);
+        hls.attachMedia(videoPlayer);
+        hls.on(Hls.Events.MANIFEST_PARSED, function () {
+            if (state.hls !== hls) return;
+            setPlayerStatus('Stream found (hls.js), starting video…');
+            safePlay(token);
+        });
+        // A segment arriving means the stream is healthy again.
+        hls.on(Hls.Events.FRAG_LOADED, function () { networkRetries = 0; });
+        hls.on(Hls.Events.ERROR, function (event, data) {
+            if (state.hls !== hls) return;
+            if (!data.fatal) {
+                if (!state.isPlaying) setPlayerStatus('hls.js warning: ' + data.details);
+                return;
+            }
+            console.error('HLS.js fatal error:', data.type, data.details);
+            // A fatal manifest error means hls.js already retried the playlist
+            // itself; startLoad() would not re-request it.
+            var manifestFailed = data.details === Hls.ErrorDetails.MANIFEST_LOAD_ERROR ||
+                data.details === Hls.ErrorDetails.MANIFEST_LOAD_TIMEOUT ||
+                data.details === Hls.ErrorDetails.MANIFEST_PARSING_ERROR;
+            if (data.type === Hls.ErrorTypes.NETWORK_ERROR && !manifestFailed && networkRetries < MAX_NETWORK_RETRIES) {
+                networkRetries++;
+                setTimeout(function () { if (state.hls === hls) hls.startLoad(); }, 1000 * Math.pow(2, networkRetries - 1));
+            } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR && mediaRecoveries < MAX_MEDIA_RECOVERIES) {
+                mediaRecoveries++;
+                if (mediaRecoveries === 2) hls.swapAudioCodec();
+                hls.recoverMediaError();
+            } else if (state.isPlaying) {
+                // Stream died mid-playback: tell the user instead of freezing.
+                stopEngines();
+                state.isPlaying = false;
+                setPlayerStatus('Stream stopped: ' + data.details);
+                showOverlay();
+                showToast('This channel is unavailable right now');
+            } else {
+                engineFailed(token, 'hls.js: ' + data.details);
+            }
+        });
+    }
+
+    // Shared <video> events for both engines.
+    videoPlayer.addEventListener('playing', function () {
+        if (!state.nowPlaying || state.isPlaying) return;
+        state.isPlaying = true;
+        if (state.watchdogId) { clearTimeout(state.watchdogId); state.watchdogId = null; }
+        setPlayerStatus('Playing (' + engineLabel(state.engine) + ')');
+        showOverlay();
+    });
+    videoPlayer.addEventListener('error', function () {
+        if (!state.nowPlaying || !videoPlayer.getAttribute('src') && !state.hls) return;
+        if (state.engine !== 'native') return; // hls.js reports its own errors
+        var err = videoPlayer.error;
+        var codes = { 1: 'aborted', 2: 'network error', 3: 'decode error', 4: 'format not supported' };
+        var reason = 'TV player: ' + (err ? (codes[err.code] || ('code ' + err.code)) : 'error');
+        if (state.isPlaying) {
+            stopEngines();
+            state.isPlaying = false;
+            setPlayerStatus('Stream stopped: ' + reason);
+            showOverlay();
+            showToast('This channel is unavailable right now');
+        } else {
+            engineFailed(state.playToken, reason);
+        }
+    });
+    videoPlayer.addEventListener('waiting', function () {
+        if (state.isPlaying) setPlayerStatus('Buffering… (' + engineLabel(state.engine) + ')');
+    });
 
     function updateFavoriteButton() {
         var btn = document.getElementById('favoriteBtn');
@@ -1049,7 +1185,12 @@ document.addEventListener('DOMContentLoaded', function () {
         overlay.classList.add('visible');
         Focus.setZone('playerFavorite', 0, 0);
         if (state.overlayTimeoutId) clearTimeout(state.overlayTimeoutId);
-        state.overlayTimeoutId = setTimeout(function () { overlay.classList.remove('visible'); }, OVERLAY_HIDE_MS);
+        state.overlayTimeoutId = setTimeout(hideOverlayIfPlaying, OVERLAY_HIDE_MS);
+    }
+
+    // The overlay (with the status line) stays up until video is actually playing.
+    function hideOverlayIfPlaying() {
+        if (state.isPlaying) document.getElementById('playerOverlay').classList.remove('visible');
     }
 
     function togglePlayPause() {
@@ -1058,9 +1199,10 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function exitPlayerToGrid() {
-        if (state.hls) { state.hls.destroy(); state.hls = null; }
-        videoPlayer.removeAttribute('src');
-        videoPlayer.load();
+        state.playToken = (state.playToken || 0) + 1;
+        stopEngines();
+        state.isPlaying = false;
+        state.nowPlaying = null;
         switchToScreen('screen-grid');
     }
 
@@ -1076,10 +1218,9 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
         if (document.getElementById('screen-settings').classList.contains('active')) { switchToScreen('screen-grid'); return; }
-        if (document.getElementById('screen-donate').classList.contains('active')) { switchToScreen('screen-grid'); return; }
         if (document.getElementById('screen-categories').classList.contains('active')) { switchToScreen('screen-grid'); return; }
         showConfirm('Are you sure you want to exit the app?', 'Exit', function () {
-            tizen.application.getCurrentApplication().exit();
+            if (window.tizen && tizen.application) tizen.application.getCurrentApplication().exit();
         });
     }
 
@@ -1094,13 +1235,21 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     document.addEventListener('keydown', function (event) {
+        // While the URL field has focus the system keyboard is open: let it
+        // handle typing/arrows (no preventDefault), and only react to Done/Cancel.
+        if (document.activeElement === urlInput) {
+            if (event.keyCode === IME_DONE) closeUrlKeyboard(true);
+            else if (event.keyCode === IME_CANCEL || event.keyCode === KEYCODE.BACK) closeUrlKeyboard(false);
+            return;
+        }
+
         var onPlayer = document.getElementById('screen-player').classList.contains('active');
 
         if (onPlayer) {
             var overlay = document.getElementById('playerOverlay');
             if (overlay.classList.contains('visible') && state.overlayTimeoutId) {
                 clearTimeout(state.overlayTimeoutId);
-                state.overlayTimeoutId = setTimeout(function () { overlay.classList.remove('visible'); }, OVERLAY_HIDE_MS);
+                state.overlayTimeoutId = setTimeout(hideOverlayIfPlaying, OVERLAY_HIDE_MS);
             }
         }
 
@@ -1120,11 +1269,11 @@ document.addEventListener('DOMContentLoaded', function () {
     // ==========================================================================
     // Boot
     // ==========================================================================
-    buildKeyboard();
     loadFavorites();
     loadPlaylistsFromStorage();
-
-    refreshActiveChannels({ screen: 'screen-grid' });
-
     Focus.setZone('iconRail', 0, 0);
+
+    // First run (or every playlist deleted): open the Playlists screen so the
+    // one-press iptv-org presets are right there.
+    refreshActiveChannels({ screen: state.playlists.length ? 'screen-grid' : 'screen-settings' });
 });

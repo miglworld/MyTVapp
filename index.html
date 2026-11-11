@@ -21,12 +21,6 @@
 					<path fill="currentColor"
 						d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" /></svg>
 			</button>
-			<button class="rail-icon" id="navDonate" tabindex="-1"
-				title="Support">
-				<svg viewBox="0 0 24 24" width="28" height="28">
-					<path fill="currentColor"
-						d="M12 21s-7.5-4.6-10.2-9.1C.2 9 1 5.6 4 4.1 6.3 3 8.9 3.7 12 6.5 15.1 3.7 17.7 3 20 4.1c3 1.5 3.8 4.9 2.2 7.4C19.5 16.4 12 21 12 21z" /></svg>
-			</button>
 			<div class="rail-spacer"></div>
 			<button class="rail-icon" id="navSettings" tabindex="-1"
 				title="Settings">
@@ -82,33 +76,15 @@
 				<div class="playlist-list" id="playlistList"></div>
 			</section>
 
-			<!-- ===================== Support / Donate Screen ===================== -->
-			<section id="screen-donate" class="screen">
-				<div class="donate-panel">
-					<img class="donate-image" id="donateImage" src="images/donate.png" alt="Support this app">
-					<div class="donate-support-card">
-						<h2 class="donate-support-title">Support the developer</h2>
-						<div class="donate-qr">
-							<img src="images/donate_qr.png" alt="QR code to donate via Stripe">
-						</div>
-						<p class="donate-url">donate.stripe.com/8x2eVef1M8vR58513Ebwk01</p>
-						<p class="donate-hint">Scan with your phone, or visit the link, to
-							leave a tip via Stripe &mdash; starts at $1, but you can change
-							it to whatever amount you'd like. Totally optional &mdash;
-							thank you for using the app either way!</p>
-					</div>
-				</div>
-			</section>
-
 			<!-- ===================== Add / Edit Playlist Screen ===================== -->
 			<section id="screen-add" class="screen">
 				<div class="add-playlist-panel">
 					<h2 id="addPlaylistTitle">Add M3U Playlist</h2>
 					<p class="hint">Enter the URL of your M3U / M3U8 playlist</p>
-					<div class="text-input-field">
-						<span id="urlText">http://</span><span class="cursor">|</span>
-					</div>
-					<div class="onscreen-keyboard" id="keyboard"></div>
+					<input type="url" id="urlInput" class="url-input" value="https://"
+						autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+					<p class="input-tip">Press OK on the field to type. You can also type from
+						your phone with the SmartThings app keyboard while the TV keyboard is open.</p>
 					<div class="add-actions">
 						<button class="btn primary" id="loadPlaylistBtn" tabindex="-1">Save</button>
 						<button class="btn" id="cancelAddBtn" tabindex="-1">Cancel</button>
@@ -125,6 +101,7 @@
 						<div>
 							<div class="now-playing-name" id="nowPlayingName"></div>
 							<div class="now-playing-group" id="nowPlayingGroup"></div>
+							<div class="player-status" id="playerStatus"></div>
 						</div>
 					</div>
 					<button class="favorite-btn" id="favoriteBtn" tabindex="-1">
@@ -149,10 +126,8 @@
 
 	</div>
 
-	<!-- If your project already bundles hls.js locally (lib/hls.min.js), point this at that
-     instead — Tizen Studio projects usually vendor their JS libs rather than pulling from
-     a CDN at runtime. -->
-	<script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js"></script>
+	<!-- hls.js 1.6.19, bundled locally (no CDN at runtime). License: lib/hls.LICENSE -->
+	<script src="lib/hls.min.js"></script>
 	<script src="js/main.js"></script>
 </body>
 </html>

@@ -408,11 +408,8 @@ button {
 	animation: spin 0.9s linear infinite;
 }
 
-@
-keyframes spin {to { transform:rotate(360deg);
-	
-}
-
+@keyframes spin {
+	to { transform: rotate(360deg); }
 }
 
 /* ==========================================================================
@@ -542,68 +539,31 @@ keyframes spin {to { transform:rotate(360deg);
 	margin-bottom: 28px;
 }
 
-.text-input-field {
-	font-size: 26px;
+.url-input {
+	display: block;
+	width: 100%;
+	box-sizing: border-box;
+	font-family: inherit;
+	font-size: 28px;
 	background: #0d0d0d;
 	border: 2px solid #262626;
 	border-radius: 10px;
-	padding: 18px 22px;
-	margin-bottom: 32px;
-	min-height: 72px;
-	word-break: break-all;
+	padding: 20px 24px;
+	margin-bottom: 18px;
 	color: #6c9fff;
+	outline: none;
 }
 
-.text-input-field .cursor {
-	animation: blink 1s step-end infinite;
-	color: #ffffff;
+.url-input.focused,
+.url-input:focus {
+	border-color: #6c9fff;
+	box-shadow: 0 0 0 4px rgba(108, 159, 255, 0.35);
 }
 
-@
-keyframes blink { 50% {
-	opacity: 0;
-}
-
-}
-.onscreen-keyboard {
-	display: flex;
-	flex-direction: column;
+.input-tip {
+	font-size: 20px;
+	color: #6f6f6f;
 	margin-bottom: 32px;
-}
-
-.keyboard-row {
-	display: flex;
-	flex-wrap: nowrap;
-	margin-bottom: 12px;
-}
-
-.key {
-	margin-right: 12px;
-}
-
-.key {
-	min-width: 68px;
-	height: 68px;
-	background: #0d0d0d;
-	border: 1px solid #1e1e1e;
-	border-radius: 8px;
-	font-size: 24px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	text-transform: uppercase;
-}
-
-.key.wide {
-	min-width: 140px;
-	font-size: 18px;
-	padding: 0 16px;
-}
-
-.key.extra-wide {
-	min-width: 230px;
-	font-size: 18px;
-	padding: 0 16px;
 }
 
 .add-actions {
@@ -675,80 +635,6 @@ keyframes blink { 50% {
 }
 
 /* ==========================================================================
-   Screen: Donate — voluntary support page reached from the icon rail.
-   ========================================================================== */
-#screen-donate {
-	display: none;
-	align-items: center;
-	justify-content: center;
-}
-
-#screen-donate.active {
-	display: flex;
-}
-
-.donate-panel {
-	display: flex;
-	flex-direction: row;
-	align-items: center;
-	justify-content: center;
-	gap: 72px;
-	padding: 40px;
-}
-
-.donate-image {
-	max-width: 460px;
-	max-height: 860px;
-	width: auto;
-	height: auto;
-	border-radius: 16px;
-	flex-shrink: 0;
-}
-
-.donate-support-card {
-	width: 420px;
-	max-width: 100%;
-	text-align: center;
-}
-
-.donate-support-title {
-	font-size: 34px;
-	font-weight: 600;
-	margin-bottom: 28px;
-}
-
-.donate-qr {
-	width: 260px;
-	height: 260px;
-	margin: 0 auto 24px;
-	background: #ffffff;
-	border-radius: 12px;
-	padding: 20px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-}
-
-.donate-qr img {
-	display: block;
-	width: 100%;
-	height: 100%;
-}
-
-.donate-url {
-	font-size: 17px;
-	color: #7a7a7a;
-	word-break: break-all;
-	margin-bottom: 20px;
-}
-
-.donate-hint {
-	font-size: 18px;
-	color: #a8a8a8;
-	line-height: 1.5;
-}
-
-/* ==========================================================================
    Screen: Player — fullscreen, covers the icon rail too, and now has a
    real focusable Favorite button instead of relying on long-press.
    ========================================================================== */
@@ -787,6 +673,13 @@ keyframes blink { 50% {
 
 .player-overlay.visible {
 	opacity: 1;
+}
+
+.player-status {
+	font-size: 20px;
+	color: #9fb8e8;
+	margin-top: 8px;
+	max-width: 1100px;
 }
 
 .now-playing {

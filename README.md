@@ -4,6 +4,7 @@ An IPTV player for Samsung Smart TVs (Tizen). It plays live channels from M3U/M3
 
 - **Download:** the `.wgt` attached to the [latest release](https://github.com/miglworld/MyTvApp/releases/latest) (unsigned, see [Installing](#installing))
 - **Changes:** [CHANGELOG.md](CHANGELOG.md)
+- **Security:** [SECURITY.md](SECURITY.md)
 
 ## Features
 
@@ -80,8 +81,6 @@ Install the package once. After that the app updates itself from GitHub.
 
 A new package is still needed when `config.xml`, `js/boot.js` or `lib/hls.min.js` changes.
 
-`launcher.html` is an older experiment (a start page that loads the app from GitHub). It is **not used**: packages that started through it showed a black screen on a real TV.
-
 ## Development
 
 ### Project structure
@@ -90,7 +89,6 @@ A new package is still needed when `config.xml`, `js/boot.js` or `lib/hls.min.js
 config.xml            Tizen widget manifest (app id, privileges, start page)
 index.html            The app and the package's start page: all screens as <section> elements
 js/boot.js            Starts js/main.js, or a newer downloaded copy of the app
-launcher.html         Older experiment: a start page that loads the app from GitHub (not used)
 css/style.css         All styling
 js/main.js            App logic: focus/navigation, playlists, playback, favorites
 lib/hls.min.js        hls.js 1.6.19, bundled (license: lib/hls.LICENSE)
@@ -112,7 +110,7 @@ TVs update themselves from `main`, so every pull request is checked by GitHub (`
 ./scripts/check.sh
 ```
 
-They verify that the scripts parse, that the version is the same in all four places, that the files self-update relies on are intact, that the tests pass, and (in a pull request) that the version went up whenever the app's own files changed.
+They verify that the scripts parse, that the version is the same in all four places, that the files self-update relies on are intact, that the security rules in [SECURITY.md](SECURITY.md) hold, that the tests pass, and (in a pull request) that the version went up whenever the app's own files changed.
 
 ### Releasing a change
 

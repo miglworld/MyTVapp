@@ -1,6 +1,6 @@
 // Runs as soon as it is loaded: this script is the last element of <body>, so
-// the whole page already exists. (It used to wait for DOMContentLoaded, which
-// is not guaranteed to fire when the launcher builds the page itself.)
+// the whole page already exists. It must not wait for DOMContentLoaded: when
+// js/boot.js starts a downloaded copy of this script, that event is long past.
 (function (main) {
     try { main(); } catch (e) {
         // A TV has no console to look at: put the error on the screen.
@@ -14,14 +14,14 @@
     // Under Node (scripts/test.js) there is no page: hand out the functions
     // that do not need one and stop here.
     if (typeof document === 'undefined') {
-        if (typeof module !== 'undefined') module.exports = { parseM3U: parseM3U, versionNewer: versionNewer };
+        if (typeof module !== 'undefined') module.exports = { parseM3U: parseM3U, versionNewer: versionNewer, isStreamUrl: isStreamUrl };
         return;
     }
 
     // ==========================================================================
     // Config / constants
     // ==========================================================================
-    var APP_VERSION = '0.10.0';
+    var APP_VERSION = '0.10.1';
     var PLAYLISTS_KEY = 'iptv_playlists';
     var ACTIVE_PLAYLISTS_KEY = 'iptv_active_playlist_id';
     var FAVORITES_KEY = 'iptv_favorites';
@@ -53,6 +53,7 @@
     var PLAYLIST_STORE = 'playlists';
     var PLAYLIST_MAX_AGE_MS = 6 * 60 * 60 * 1000;
     var PLAYLIST_REFRESH_DELAY_MS = 4000;
+    var PLAYLIST_MAX_CHARS = 40 * 1000 * 1000;
     var LOG_LINES = 14;
     var OVERLAY_HIDE_MS = 5000;
     var TOAST_MS = 3000;
@@ -426,6 +427,16 @@
     // ==========================================================================
     // M3U parsing
     // ==========================================================================
+    function isStreamUrl(url) {
+        return /^(https?|rtmps?|rtsp|rtp|udp|mms|mmsh):\/\/\S+$/i.test(url);
+    }
+
+    // Logos are loaded as images from the playlist's own addresses: web
+    // addresses only.
+    function safeLogo(url) {
+        return /^https?:\/\/\S+$/i.test(url || '') ? url : '';
+    }
+
     function parseM3U(text) {
         var lines = text.split(/\r?\n/);
         var channels = [];
@@ -454,7 +465,7 @@
                 var name = comma === -1 ? '' : line.slice(comma + 1).trim();
                 pending = {
                     name: name || 'Unnamed Channel',
-                    logo: attrs['tvg-logo'] || '',
+                    logo: safeLogo(attrs['tvg-logo']),
                     group: attrs['group-title'] || 'Other',
                     tvgId: attrs['tvg-id'] || '',
                     tvgCountry: attrs['tvg-country'] || '',
@@ -464,7 +475,10 @@
                 // Group given on its own line instead of group-title.
                 if (pending && pending.group === 'Other') pending.group = line.slice(8).trim() || 'Other';
             } else if (line.indexOf('#') !== 0) {
-                if (pending) { pending.url = line; channels.push(pending); pending = null; }
+                // Playlists come from anywhere: only real stream addresses are
+                // accepted, never file:, javascript:, data: or relative paths.
+                if (pending && isStreamUrl(line)) { pending.url = line; channels.push(pending); }
+                pending = null;
             }
         }
         return channels;
@@ -663,6 +677,8 @@
         return fetchWithTimeout(pl.url)
             .then(function (res) { if (!res.ok) throw new Error('HTTP ' + res.status); return res.text(); })
             .then(function (text) {
+                // A playlist far beyond any real one would only exhaust the TV's memory and storage.
+                if (text.length > PLAYLIST_MAX_CHARS) throw new Error('Playlist is too large');
                 var channels = channelsFromText(pl, text);
                 cachePut(pl, text);
                 return { channels: channels, text: text };
@@ -1215,8 +1231,8 @@
         });
     }
 
-    // Which copy is running: loaded from GitHub by the launcher, the bundled
-    // copy in the installed package, or a TizenBrew module.
+    // Which copy is running: a downloaded update, the installed package's
+    // own copy, or a web page / TizenBrew module.
     function renderAppVersion() {
         var source = window.MYTVAPP_SOURCE;
         if (!source) {
@@ -1263,7 +1279,11 @@
     function checkForUpdate(manual) {
         if (!updatesPossible() || (!autoUpdate && !manual)) return;
         var base = developerMode ? UPDATE_DEV_URL : UPDATE_URL;
-        try { base = localStorage.getItem(UPDATE_URL_KEY) || base; } catch (e) { /* keep base */ }
+        // The test override only works on a developer's own machine. On a TV
+        // the app can only ever update from the two GitHub addresses above.
+        if (location.hostname === 'localhost') {
+            try { base = localStorage.getItem(UPDATE_URL_KEY) || base; } catch (e) { /* keep base */ }
+        }
         var channel = developerMode ? 'dev branch' : 'main';
         var version = '';
 

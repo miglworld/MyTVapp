@@ -66,6 +66,42 @@ test('a URL without an entry, and an entry without a URL, give no channel', func
     assert.strictEqual(app.parseM3U('#EXTINF:-1,A').length, 0);
 });
 
+test('only real stream addresses become channels', function () {
+    var ch = app.parseM3U([
+        '#EXTINF:-1,ok http', 'http://e/a',
+        '#EXTINF:-1,ok https', 'HTTPS://e/b',
+        '#EXTINF:-1,ok rtmp', 'rtmp://e/live',
+        '#EXTINF:-1,ok udp', 'udp://@239.0.0.1:1234',
+        '#EXTINF:-1,file', 'file:///etc/passwd',
+        '#EXTINF:-1,script', 'javascript:alert(1)',
+        '#EXTINF:-1,data', 'data:text/html,<script>alert(1)</script>',
+        '#EXTINF:-1,relative', '../../index.html',
+        '#EXTINF:-1,spaces', 'http://e/a b'
+    ].join('\n'));
+    assert.deepStrictEqual(ch.map(function (c) { return c.name; }), ['ok http', 'ok https', 'ok rtmp', 'ok udp']);
+});
+
+test('a rejected address does not attach its entry to the next URL', function () {
+    var ch = app.parseM3U('#EXTINF:-1,bad\nfile:///x\nhttp://e/stray\n#EXTINF:-1,good\nhttp://e/g');
+    assert.deepStrictEqual(ch.map(function (c) { return c.name + '|' + c.url; }), ['good|http://e/g']);
+});
+
+test('logos must be web addresses', function () {
+    var ch = app.parseM3U([
+        '#EXTINF:-1 tvg-logo="https://e/l.png",a', 'http://e/a',
+        '#EXTINF:-1 tvg-logo="javascript:alert(1)",b', 'http://e/b',
+        '#EXTINF:-1 tvg-logo="file:///x.png",c', 'http://e/c',
+        '#EXTINF:-1 tvg-logo="x) ; background: red",d', 'http://e/d'
+    ].join('\n'));
+    assert.deepStrictEqual(ch.map(function (c) { return c.logo; }), ['https://e/l.png', '', '', '']);
+});
+
+test('markup in names stays plain text for the page to show as text', function () {
+    var ch = app.parseM3U('#EXTINF:-1 group-title="<img src=x onerror=alert(1)>",<script>alert(1)</script>\nhttp://e/a');
+    assert.strictEqual(ch[0].name, '<script>alert(1)</script>');
+    assert.strictEqual(ch[0].group, '<img src=x onerror=alert(1)>');
+});
+
 test('channel number attribute is kept', function () {
     assert.strictEqual(app.parseM3U('#EXTINF:-1 tvg-chno="12",A\nhttp://e/a')[0].chno, '12');
 });

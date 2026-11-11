@@ -1512,9 +1512,19 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         if (document.getElementById('screen-settings').classList.contains('active')) { switchToScreen('screen-grid'); return; }
         if (document.getElementById('screen-categories').classList.contains('active')) { switchToScreen('screen-grid'); return; }
-        showConfirm('Are you sure you want to exit the app?', 'Exit', function () {
-            if (window.tizen && tizen.application) tizen.application.getCurrentApplication().exit();
-        });
+        showConfirm('Are you sure you want to exit the app?', 'Exit', exitApp);
+    }
+
+    // Installed app: close it through the Tizen API. As a TizenBrew module the
+    // page has no Tizen API, so go back to the TizenBrew screen that opened it.
+    function exitApp() {
+        stopEngines();
+        if (window.tizen && tizen.application) {
+            try { tizen.application.getCurrentApplication().exit(); return; } catch (e) { /* fall through */ }
+        }
+        if (window.history.length > 1) { window.history.back(); return; }
+        try { window.close(); } catch (e) { /* nothing else to try */ }
+        showToast('Press the Home button to leave the app');
     }
 
     // ==========================================================================

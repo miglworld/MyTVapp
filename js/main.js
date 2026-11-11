@@ -592,7 +592,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (!featured) {
             bg.style.backgroundImage = '';
-            title.textContent = 'TVapp';
+            title.textContent = 'MyTvApp';
             subtitle.textContent = 'Add a playlist to get started';
             return;
         }

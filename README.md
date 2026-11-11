@@ -1,8 +1,8 @@
-# TVapp
+# MyTvApp
 
 > Fork of [KaashDev/TVapp](https://github.com/KaashDev/TVapp), the original app by KaashDev. See [Changes in this fork](#changes-in-this-fork).
 
-A Samsung Smart TV app built with Tizen Studio that streams live IPTV channels from M3U/M3U8 playlists, navigable entirely with a TV remote.
+MyTvApp (formerly TVapp) is a Samsung Smart TV app built with Tizen Studio that streams live IPTV channels from M3U/M3U8 playlists, navigable entirely with a TV remote.
 
 ## Demo
 
@@ -47,7 +47,7 @@ js/main.js            App logic: Focus/navigation, playlists, playback, favorite
 lib/hls.min.js        hls.js 1.6.19, bundled (license: lib/hls.LICENSE)
 images/thumbnail.png  README demo thumbnail
 noun-live-tv-3548799.png   Widget icon referenced by config.xml
-TVapp.wgt             Pre-built UNSIGNED package (sign with your own Samsung certificate)
+MyTvApp.wgt           Pre-built UNSIGNED package (sign with your own Samsung certificate)
 ```
 
 ## Building
@@ -62,7 +62,7 @@ tizen build-web -- .
 tizen package -t wgt -s <your-security-profile> -- .buildResult
 ```
 
-This produces `.buildResult/TVapp.wgt`.
+This produces `.buildResult/MyTvApp.wgt`.
 
 ## Which install to use
 
@@ -74,7 +74,7 @@ TizenBrew can load this app straight from GitHub, so every push to `main` reache
 
 1. Open **TizenBrew** on the TV, go to the **Module Manager** and choose **Add GitHub Module**.
 2. Enter `miglworld/MyTVapp@main` (keep the `@main`: without it the CDN serves the old upstream `v1.0.0` tag, which has no module file).
-3. Launch **TVapp** from TizenBrew.
+3. Launch **MyTvApp** from TizenBrew.
 
 Notes:
 - Files are served through the jsDelivr CDN, which caches branch files for up to 12 hours, so an update can take that long to appear.
@@ -88,10 +88,10 @@ Notes:
 sdb connect <tv-ip-address>
 
 # Install
-tizen install -n TVapp.wgt -t <device-id> -- .buildResult
+tizen install -n MyTvApp.wgt -t <device-id> -- .buildResult
 ```
 
-Alternatively, install the pre-built `TVapp.wgt` from this repo. It is **unsigned**: sign it with your own Samsung certificate (the TizenBrew Installer does this on Tizen 7+, or use `tizen package -t wgt -s <profile>`). If an older copy signed by someone else is installed, uninstall it first or the install fails with "Author certificate not match".
+Alternatively, install the pre-built `MyTvApp.wgt` from this repo. It is **unsigned**: sign it with your own Samsung certificate (the TizenBrew Installer does this on Tizen 7+, or use `tizen package -t wgt -s <profile>`). If an older copy signed by someone else is installed, uninstall it first or the install fails with "Author certificate not match".
 
 ## Notes on network dependence
 

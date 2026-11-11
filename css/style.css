@@ -60,7 +60,7 @@ button {
 	z-index: 3;
 	width: 300px;
 	margin: 28px 0 28px 28px;
-	border-radius: 28px;
+	border-radius: 38px;
 	display: flex;
 	flex-direction: column;
 	padding: 26px 16px 18px;
@@ -89,14 +89,14 @@ button {
 	display: flex;
 	align-items: center;
 	width: 100%;
-	height: 58px;
+	height: 60px;
 	flex-shrink: 0;
-	padding: 0 16px;
+	padding: 0 18px;
 	margin-bottom: 4px;
-	border-radius: 14px;
+	border-radius: 30px;
 	font-size: 22px;
 	text-align: left;
-	color: #c7c7cc;
+	color: #e5e5ea;
 }
 
 .menu-icon {
@@ -121,7 +121,6 @@ button {
 /* The section that is showing, while the remote is elsewhere. */
 .menu-item.active {
 	color: #ffffff;
-	background: rgba(255, 255, 255, 0.1);
 }
 
 .menu-item.focused {
@@ -138,6 +137,7 @@ button {
 
 .menu-scroll .menu-item {
 	height: 52px;
+	border-radius: 26px;
 	font-size: 20px;
 }
 
@@ -152,23 +152,26 @@ button {
 }
 
 /* ==========================================================================
-   Glass: the floating panels are translucent, with a light edge and a soft
-   sheen from the top-left corner.
+   Glass. The floating panels are a thin, light sheet: mostly clear, a bright
+   rim along the top-left edge, a faint one along the bottom-right, and a
+   soft shadow that lifts them off the picture.
    Where the browser can do it, what lies behind is blurred as well. The
    Samsung player draws its picture BEHIND the page, out of the page's reach,
-   so over that picture the panels are clear glass rather than frosted, and
-   the blur is switched off there to save the TV the work.
+   so over that picture nothing can be blurred: there the glass is a little
+   darker instead, to keep the text readable, and the blur is switched off to
+   save the TV the work.
    ========================================================================== */
 .sidebar,
 .live-channels,
 .channel-panel,
 .modal-box,
 .toast,
-.number-entry {
-	background: rgba(24, 24, 28, 0.62);
-	background: linear-gradient(155deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.04) 34%, rgba(255, 255, 255, 0.02) 100%), rgba(24, 24, 28, 0.62);
-	border: 1px solid rgba(255, 255, 255, 0.14);
-	box-shadow: 0 22px 50px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+.number-entry,
+.favorite-btn {
+	background: rgba(34, 34, 40, 0.46);
+	background: linear-gradient(140deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.07) 26%, rgba(255, 255, 255, 0.02) 62%, rgba(255, 255, 255, 0.09) 100%), rgba(34, 34, 40, 0.46);
+	border: 1px solid rgba(255, 255, 255, 0.2);
+	box-shadow: 0 26px 60px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.38), inset 1px 0 0 rgba(255, 255, 255, 0.14), inset 0 -1px 0 rgba(255, 255, 255, 0.08);
 }
 
 html:not(.avplay-active) .sidebar,
@@ -176,14 +179,87 @@ html:not(.avplay-active) .live-channels,
 html:not(.avplay-active) .channel-panel,
 html:not(.avplay-active) .modal-box,
 html:not(.avplay-active) .toast,
-html:not(.avplay-active) .number-entry {
-	-webkit-backdrop-filter: blur(28px) saturate(1.5);
-	backdrop-filter: blur(28px) saturate(1.5);
+html:not(.avplay-active) .number-entry,
+html:not(.avplay-active) .favorite-btn {
+	-webkit-backdrop-filter: blur(34px) saturate(1.7);
+	backdrop-filter: blur(34px) saturate(1.7);
 }
 
-/* The focused item: a bright piece of glass. */
+html.avplay-active .sidebar,
+html.avplay-active .live-channels,
+html.avplay-active .channel-panel,
+html.avplay-active .modal-box,
+html.avplay-active .toast,
+html.avplay-active .number-entry,
+html.avplay-active .favorite-btn {
+	background: rgba(22, 22, 26, 0.66);
+	background: linear-gradient(140deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.06) 26%, rgba(255, 255, 255, 0.02) 62%, rgba(255, 255, 255, 0.08) 100%), rgba(22, 22, 26, 0.66);
+}
+
+/* The focused item: a bright, lifted piece of glass. */
 .focused {
-	background: rgba(255, 255, 255, 0.94) !important;
+	background: rgba(255, 255, 255, 0.92) !important;
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(240, 240, 245, 0.9) 100%) !important;
+	box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 1);
+	transform: scale(1.03);
+}
+
+/* What is selected while the remote is elsewhere: a faint glass plate. */
+.menu-item.active,
+.live-row.selected {
+	background: rgba(255, 255, 255, 0.14);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+/* ==========================================================================
+   The menu folds away. While the remote is in the channel list or on
+   another screen, the menu is a small capsule of icons in the corner and the
+   picture gets the room. Left opens it again.
+   ========================================================================== */
+.sidebar.collapsed {
+	width: 92px;
+	align-self: flex-start;
+	padding: 12px;
+	border-radius: 46px;
+}
+
+.sidebar.collapsed .brand,
+.sidebar.collapsed .menu-scroll,
+.sidebar.collapsed .menu-label,
+.sidebar.collapsed .menu-count {
+	display: none;
+}
+
+.sidebar.collapsed .menu-item {
+	width: 66px;
+	height: 66px;
+	padding: 0;
+	margin-bottom: 6px;
+	border-radius: 50%;
+	justify-content: center;
+}
+
+.sidebar.collapsed .menu-item:last-child {
+	margin-bottom: 0;
+}
+
+.sidebar.collapsed .menu-icon {
+	margin-right: 0;
+}
+
+/* In the capsule, a category counts as Live TV. */
+.sidebar.collapsed .menu-item.active {
+	background: none;
+	box-shadow: none;
+	color: #e5e5ea;
+}
+
+.sidebar.collapsed[data-root="live"] #navLive,
+.sidebar.collapsed[data-root="favorites"] #navFavorites,
+.sidebar.collapsed[data-root="settings"] #navSettings {
+	color: #ffffff;
+	background: rgba(255, 255, 255, 0.18);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
 }
 
 /* ==========================================================================
@@ -243,7 +319,7 @@ html:not(.avplay-active) .number-entry {
 	width: 540px;
 	display: flex;
 	flex-direction: column;
-	border-radius: 28px;
+	border-radius: 38px;
 }
 
 .live-head {
@@ -283,10 +359,10 @@ html:not(.avplay-active) .number-entry {
 	align-items: center;
 	height: 76px;
 	margin-bottom: 8px;
-	padding: 0 16px;
-	border-radius: 16px;
+	padding: 0 18px;
+	border-radius: 24px;
 	font-size: 23px;
-	color: #c7c7cc;
+	color: #e5e5ea;
 }
 
 .live-row .live-num {
@@ -297,17 +373,17 @@ html:not(.avplay-active) .number-entry {
 }
 
 .live-row .live-logo {
-	width: 64px;
-	height: 44px;
+	width: 72px;
+	height: 48px;
 	flex-shrink: 0;
 	margin-right: 18px;
-	border-radius: 8px;
-	background: rgba(255, 255, 255, 0.06) center / contain no-repeat;
+	border-radius: 12px;
+	background: rgba(255, 255, 255, 0.08) center / contain no-repeat;
 	text-align: center;
-	line-height: 44px;
+	line-height: 48px;
 	font-size: 20px;
 	font-weight: 600;
-	color: #8e8e93;
+	color: #aeaeb2;
 }
 
 .live-row .live-name {
@@ -337,7 +413,6 @@ html:not(.avplay-active) .number-entry {
 
 /* The channel the list is on, while the remote is in the menu. */
 .live-row.selected {
-	background: rgba(255, 255, 255, 0.1);
 	color: #ffffff;
 }
 
@@ -508,7 +583,7 @@ html:not(.avplay-active) .number-entry {
 	text-align: left;
 	background: #161618;
 	border: 1px solid transparent;
-	border-radius: 14px;
+	border-radius: 20px;
 	padding: 20px 24px;
 }
 
@@ -581,7 +656,7 @@ html:not(.avplay-active) .number-entry {
 	margin-left: 16px;
 	background: #161618;
 	border: 1px solid transparent;
-	border-radius: 14px;
+	border-radius: 20px;
 	font-size: 18px;
 	color: #f5f5f7;
 }
@@ -658,7 +733,7 @@ html:not(.avplay-active) .number-entry {
 	font-size: 28px;
 	background: #161618;
 	border: 2px solid #2c2c2e;
-	border-radius: 14px;
+	border-radius: 20px;
 	padding: 20px 24px;
 	margin-bottom: 18px;
 	color: #f5f5f7;
@@ -689,7 +764,7 @@ html:not(.avplay-active) .number-entry {
 .btn {
 	font-size: 24px;
 	padding: 16px 42px;
-	border-radius: 14px;
+	border-radius: 20px;
 	background: #161618;
 	border: 1px solid transparent;
 	color: #f5f5f7;
@@ -723,7 +798,7 @@ html:not(.avplay-active) .number-entry {
 }
 
 .modal-box {
-	border-radius: 28px;
+	border-radius: 38px;
 	padding: 40px 46px;
 	max-width: 700px;
 	text-align: center;
@@ -863,7 +938,7 @@ html.video-full .sidebar {
 	bottom: 28px;
 	left: 28px;
 	width: 640px;
-	border-radius: 28px;
+	border-radius: 38px;
 	display: flex;
 	flex-direction: column;
 	padding: 32px 0 20px;
@@ -895,15 +970,13 @@ html.video-full .sidebar {
 	margin: 0 14px 8px;
 	padding: 0 18px;
 	font-size: 23px;
-	color: #c7c7cc;
-	border-radius: 16px;
+	color: #e5e5ea;
+	border-radius: 22px;
 	border-left: 0;
 }
 
 .panel-row.focused {
 	border-left-color: transparent;
-	border-radius: 14px;
-	transform: none;
 	box-shadow: none;
 }
 
@@ -996,8 +1069,6 @@ html.video-full .sidebar {
 	font-size: 22px;
 	padding: 16px 28px;
 	border-radius: 999px;
-	background: rgba(24, 24, 28, 0.62);
-	border: 1px solid rgba(255, 255, 255, 0.14);
 	color: #f5f5f7;
 	flex-shrink: 0;
 }
@@ -1009,7 +1080,7 @@ html.video-full .sidebar {
 }
 
 .favorite-btn.active {
-	border-color: #f5f5f7;
+	color: #ffffff;
 }
 
 .favorite-btn.active #favoriteIcon {

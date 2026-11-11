@@ -28,7 +28,7 @@ An IPTV player for Samsung Smart TVs (Tizen). It plays live channels from M3U/M3
 |---|---|
 | Up / Down | Move through the menu or the channel list |
 | Right, OK (in the menu) | Go into the channel list |
-| Left, Back (in the list) | Back to the menu |
+| Left, Back (in the list) | Open the menu (it folds into a small capsule while you are in the list) |
 | OK (in the list) | Full screen |
 | Right (in the list) | Add or remove the favorite |
 | CH+ / CH- | Page through the list |

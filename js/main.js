@@ -21,7 +21,7 @@
     // ==========================================================================
     // Config / constants
     // ==========================================================================
-    var APP_VERSION = '0.11.2';
+    var APP_VERSION = '0.11.3';
     var PLAYLISTS_KEY = 'iptv_playlists';
     var ACTIVE_PLAYLISTS_KEY = 'iptv_active_playlist_id';
     var FAVORITES_KEY = 'iptv_favorites';
@@ -212,6 +212,11 @@
         col: 0,
 
         setZone: function (name, row, col) {
+            // The menu folds into a small capsule while the remote is elsewhere
+            // (a dialog leaves it as it was).
+            if (name !== 'confirmActions') {
+                document.getElementById('sidebar').classList.toggle('collapsed', name !== 'sideMenu');
+            }
             this.currentZone = name;
             this.row = row || 0;
             this.col = col || 0;
@@ -425,6 +430,9 @@
         var rows = menuButtons();
         var current = currentMenuRow();
         for (var i = 0; i < rows.length; i++) rows[i][0].classList.toggle('active', i === current);
+        // For the folded menu, which only has the three icons.
+        document.getElementById('sidebar').setAttribute('data-root',
+            current === rows.length - 1 ? 'settings' : (state.section.type === 'favorites' ? 'favorites' : 'live'));
     }
 
     function renderSideMenu() {

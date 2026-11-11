@@ -15,7 +15,7 @@ A Samsung Smart TV app built with Tizen Studio that streams live IPTV channels f
 - **Categories & channel browsing** — channels are grouped by `group-title` into an alphabetical, two-column category list, then into a channel grid per category.
 - **Favorites** — star any channel while watching it. Favorites persist independently of which playlists are active, but are only *shown* while their source playlist is active (deactivating a playlist hides its favorites without deleting them; deleting the playlist removes them for good).
 - **Remote-control navigation** — a custom focus-zone system drives all navigation via D-pad (arrow keys + Enter/OK) and the remote's Back key; no mouse/pointer required. Includes Channel Up/Down zapping and Play/Pause from the remote.
-- **Playback with automatic fallback** — on a Samsung TV the TV's built-in player is tried first (native HLS, not subject to CORS), then [hls.js](https://github.com/video-dev/hls.js/) (bundled locally, v1.6.19). If a player errors or shows no video within 12 s, the next one is tried. A status line in the player shows which player is in use and the exact error if a channel fails.
+- **Playback with automatic fallback** — in the installed app, Samsung's native player (**AVPlay**) is used first: it opens stream URLs itself (no CORS restrictions) and decodes HLS natively, like other Samsung IPTV apps. Then the browser's `<video>` element, then [hls.js](https://github.com/video-dev/hls.js/) (bundled, v1.6.19). If a player errors or shows no video within 12 s, the next one is tried. A status line in the player shows which player is in use and every player's error if a channel fails.
 - **Native text input** — the playlist URL field is a real input that opens Samsung's system keyboard, so you can also type from your phone with the SmartThings app.
 
 ## Remote keys while watching
@@ -63,6 +63,10 @@ tizen package -t wgt -s <your-security-profile> -- .buildResult
 ```
 
 This produces `.buildResult/TVapp.wgt`.
+
+## Which install to use
+
+Use the **installed `.wgt`** to watch IPTV. Only an installed app can use Samsung's AVPlay player. A TizenBrew module runs as a plain web page without Samsung's TV APIs, so it only has the browser players, and most free IPTV servers block those (`manifestLoadError`, `format not supported`). The module route below is fine for testing the interface.
 
 ## Install as a TizenBrew module (recommended: updates without reinstalling)
 

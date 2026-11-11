@@ -66,6 +66,7 @@ document.addEventListener('DOMContentLoaded', function () {
         playErrors: [],
         playFailed: false,
         watchdogId: null,
+        avplayOpen: false,
         prevChannel: null,       // { ch, context, list } for the "previous channel" key
         lastExited: null,        // channel showing when the player was closed
         panelOpen: false,
@@ -1069,6 +1070,12 @@ document.addEventListener('DOMContentLoaded', function () {
     // engine errors or shows no video within PLAY_WATCHDOG_MS, the next one is tried.
     var PLAY_WATCHDOG_MS = 12000;
     var isTizen = !!(window.tizen);
+    // Samsung's native player (AVPlay). Present only in an installed .wgt with
+    // webapis.js loaded; not in a TizenBrew module or a desktop browser. It
+    // fetches streams itself (no CORS) and decodes HLS natively, like other
+    // Samsung IPTV apps, so it is the first choice whenever it exists.
+    var hasAvplay = !!(window.webapis && window.webapis.avplay);
+    var avplayObject = null;
 
     function setPlayerStatus(msg) {
         document.getElementById('playerStatus').textContent = msg;
@@ -1077,6 +1084,12 @@ document.addEventListener('DOMContentLoaded', function () {
     function stopEngines() {
         if (state.watchdogId) { clearTimeout(state.watchdogId); state.watchdogId = null; }
         if (state.hls) { state.hls.destroy(); state.hls = null; }
+        if (state.avplayOpen) {
+            try { webapis.avplay.stop(); } catch (e) { /* already stopped */ }
+            try { webapis.avplay.close(); } catch (e) { /* already closed */ }
+            state.avplayOpen = false;
+        }
+        document.documentElement.classList.remove('avplay-active');
         videoPlayer.removeAttribute('src');
         videoPlayer.load();
     }
@@ -1097,7 +1110,7 @@ document.addEventListener('DOMContentLoaded', function () {
         updateFavoriteButton();
 
         var hlsOk = !!(window.Hls && Hls.isSupported());
-        var engines = isTizen ? ['native', 'hls'] : ['hls', 'native'];
+        var engines = hasAvplay ? ['avplay', 'native', 'hls'] : (isTizen ? ['native', 'hls'] : ['hls', 'native']);
         state.enginesLeft = engines.filter(function (e) { return e !== 'hls' || hlsOk; });
         state.playErrors = [];
         state.playFailed = false;
@@ -1122,11 +1135,78 @@ document.addEventListener('DOMContentLoaded', function () {
             engineFailed(token, engineLabel(engine) + ': no video after ' + (PLAY_WATCHDOG_MS / 1000) + ' s');
         }, PLAY_WATCHDOG_MS);
 
-        if (engine === 'native') startNative(ch, token);
+        if (engine === 'avplay') startAvplay(ch, token);
+        else if (engine === 'native') startNative(ch, token);
         else startHls(ch, token);
     }
 
-    function engineLabel(engine) { return engine === 'native' ? 'TV player' : 'hls.js'; }
+    function engineLabel(engine) {
+        return engine === 'avplay' ? 'Samsung player' : (engine === 'native' ? 'TV player' : 'hls.js');
+    }
+
+    function markPlaying() {
+        if (!state.nowPlaying || state.isPlaying) return;
+        state.isPlaying = true;
+        if (state.watchdogId) { clearTimeout(state.watchdogId); state.watchdogId = null; }
+        setPlayerStatus('Playing (' + engineLabel(state.engine) + ')');
+        showOverlay();
+    }
+
+    function streamStopped(reason) {
+        stopEngines();
+        state.isPlaying = false;
+        setPlayerStatus('Stream stopped: ' + reason);
+        showOverlay();
+        showToast('This channel is unavailable right now');
+    }
+
+    function startAvplay(ch, token) {
+        setPlayerStatus('Connecting (Samsung player)\u2026');
+        if (!avplayObject) {
+            avplayObject = document.createElement('object');
+            avplayObject.id = 'avPlayer';
+            avplayObject.type = 'application/avplayer';
+            var screen = document.getElementById('screen-player');
+            screen.insertBefore(avplayObject, screen.firstChild);
+        }
+        document.documentElement.classList.add('avplay-active');
+        var av = webapis.avplay;
+        var label = 'Samsung player: ';
+        try {
+            av.open(ch.url);
+            state.avplayOpen = true;
+            // setDisplayRect always uses a 1920x1080 base (Samsung AVPlay guide): full screen.
+            av.setDisplayRect(0, 0, 1920, 1080);
+            av.setListener({
+                onbufferingstart: function () {
+                    if (token === state.playToken && state.isPlaying) setPlayerStatus('Buffering\u2026 (Samsung player)');
+                },
+                onbufferingcomplete: function () {
+                    if (token === state.playToken && state.isPlaying) setPlayerStatus('Playing (Samsung player)');
+                },
+                oncurrentplaytime: function () {
+                    if (token === state.playToken) markPlaying();
+                },
+                onstreamcompleted: function () {
+                    if (token === state.playToken) streamStopped('stream ended');
+                },
+                onerror: function (err) {
+                    if (token !== state.playToken) return;
+                    var reason = label + (err && err.name ? err.name : String(err));
+                    if (state.isPlaying) streamStopped(reason); else engineFailed(token, reason);
+                },
+                onevent: function () { /* not used */ }
+            });
+            av.prepareAsync(function () {
+                if (token !== state.playToken) return;
+                try { av.play(); } catch (e) { engineFailed(token, label + (e.name || e)); }
+            }, function (e) {
+                if (token === state.playToken) engineFailed(token, label + (e && e.name ? e.name : String(e)));
+            });
+        } catch (e) {
+            engineFailed(token, label + (e && e.name ? e.name : String(e)));
+        }
+    }
 
     function engineFailed(token, reason) {
         if (token !== state.playToken || state.isPlaying) return;
@@ -1200,11 +1280,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Shared <video> events for both engines.
     videoPlayer.addEventListener('playing', function () {
-        if (!state.nowPlaying || state.isPlaying) return;
-        state.isPlaying = true;
-        if (state.watchdogId) { clearTimeout(state.watchdogId); state.watchdogId = null; }
-        setPlayerStatus('Playing (' + engineLabel(state.engine) + ')');
-        showOverlay();
+        if (state.engine === 'avplay') return;
+        markPlaying();
     });
     videoPlayer.addEventListener('error', function () {
         if (!state.nowPlaying || !videoPlayer.getAttribute('src') && !state.hls) return;
@@ -1400,7 +1477,11 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function togglePlayPause() {
-        if (videoPlayer.paused) videoPlayer.play(); else videoPlayer.pause();
+        if (state.engine === 'avplay' && state.avplayOpen) {
+            try {
+                if (webapis.avplay.getState() === 'PLAYING') webapis.avplay.pause(); else webapis.avplay.play();
+            } catch (e) { /* ignore */ }
+        } else if (videoPlayer.paused) videoPlayer.play(); else videoPlayer.pause();
         showOverlay();
     }
 

@@ -21,7 +21,7 @@
     // ==========================================================================
     // Config / constants
     // ==========================================================================
-    var APP_VERSION = '0.10.1';
+    var APP_VERSION = '0.11.0';
     var PLAYLISTS_KEY = 'iptv_playlists';
     var ACTIVE_PLAYLISTS_KEY = 'iptv_active_playlist_id';
     var FAVORITES_KEY = 'iptv_favorites';
@@ -70,10 +70,10 @@
         { name: 'IPTV-ORG All Countries', url: 'https://iptv-org.github.io/iptv/index.country.m3u' }
     ];
 
-    // Channel tiles are rendered in batches: categories in big playlists hold
-    // 1,000-2,000 channels, and building every tile (plus loading every logo)
-    // at once stalls a TV browser. More tiles are appended as focus nears the end.
-    var CHANNEL_BATCH = 60;
+    // Live TV screen: height of one channel row (matches css/style.css), and how
+    // long the list has to rest on a channel before its preview starts.
+    var LIVE_ROW_H = 84;
+    var PREVIEW_DELAY_MS = 700;
 
     // Playback error handling limits — a dead stream gives up with a message
     // instead of retrying forever.
@@ -98,7 +98,15 @@
         channels: [],
         channelsByPlaylist: {},  // playlist id -> its channels (active playlists only)
         categories: [],          // [{ name, code, channels: [...] }] — grouped by group-title
-        activeCategoryIndex: 0,
+        section: { type: 'all' }, // what the Live TV list shows: all | favorites | category (+ index)
+        liveList: [],            // channels of that section
+        liveIndex: 0,            // channel the list is on
+        liveRows: 10,            // rows that fit in the list (measured when shown)
+        fullscreen: false,       // picture is full screen (player), not the preview window
+        zapTitle: '',            // title of the list being zapped through
+        statusText: '',          // last player status line
+        previewTimer: null,
+        menuTimer: null,
         favorites: [],
         nowPlaying: null,
         zapContext: 'category',  // 'category' | 'favorites'
@@ -106,7 +114,6 @@
         hls: null,
         overlayTimeoutId: null,
         toastTimeoutId: null,
-        renderedChannelCount: 0,
         playToken: 0,
         isPlaying: false,
         engine: null,
@@ -116,7 +123,6 @@
         watchdogId: null,
         avplayOpen: false,
         quality: '',             // picture size / bitrate last read from the player
-        returnTo: null,          // screen + focus to go back to when the player closes
         prevChannel: null,       // { ch, context, list } for the "previous channel" key
         lastExited: null,        // channel showing when the player was closed
         panelOpen: false,
@@ -260,60 +266,18 @@
         }
     };
 
-    // Groups elements into visual rows by comparing their actual rendered
-    // offsetTop, instead of assuming a fixed column count from pixel math.
-    // This stays correct regardless of tile size, padding, or screen width —
-    // a hardcoded column count silently drifts out of sync with the real
-    // flex-wrap layout the moment either one changes.
-    function rowsByLayout(elements) {
-        var rows = [];
-        var currentRow = [];
-        var currentTop = null;
-        for (var i = 0; i < elements.length; i++) {
-            var el = elements[i];
-            if (currentTop === null || el.offsetTop === currentTop) {
-                currentRow.push(el);
-            } else {
-                rows.push(currentRow);
-                currentRow = [el];
-            }
-            currentTop = el.offsetTop;
-        }
-        if (currentRow.length) rows.push(currentRow);
-        return rows;
-    }
-
-    // Row layout per grid, reused between key presses. Reading offsetTop of
-    // up to 2,000 tiles on every arrow press is slow on a TV; the layout only
-    // changes when the tiles do (re-render or a new batch appended).
-    var layoutCache = {};
-    function cachedRows(key, selector) {
-        var els = document.querySelectorAll(selector);
-        var c = layoutCache[key];
-        if (c && c.count === els.length && c.first === els[0]) return c.rows;
-        var rows = rowsByLayout(els);
-        // A hidden grid has no layout (every offsetTop is 0): do not keep that.
-        if (els.length && els[0].offsetParent !== null) layoutCache[key] = { count: els.length, first: els[0], rows: rows };
-        return rows;
-    }
-
-    function leftEdgeToRail(zoneName) {
+    // Left from a screen's own controls goes to the side menu, onto the entry
+    // of what is showing.
+    function leftEdgeToMenu(zoneName) {
         Focus.zones[zoneName].onEdge = (function (existing) {
             return function (dir) {
                 if (dir === 'left') {
-                    Focus.setZone('iconRail', currentRailRow(), 0);
+                    Focus.setZone('sideMenu', currentMenuRow(), 0);
                 } else if (existing) {
                     existing(dir);
                 }
             };
         })(Focus.zones[zoneName].onEdge);
-    }
-
-    function currentRailRow() {
-        if (document.getElementById('screen-categories').classList.contains('active') ||
-            document.getElementById('screen-category-channels').classList.contains('active')) return 1;
-        if (document.getElementById('screen-settings').classList.contains('active')) return 2;
-        return 0;
     }
 
     // ==========================================================================
@@ -343,6 +307,7 @@
         document.getElementById('confirmModal').hidden = true;
         pendingConfirmCallback = null;
         if (confirmReturnZone) Focus.setZone(confirmReturnZone.name, confirmReturnZone.row, confirmReturnZone.col);
+        if (Focus.currentZone === 'liveList') renderLiveList();
     }
 
     Focus.zones.confirmActions = {
@@ -375,26 +340,21 @@
         document.getElementById(id).classList.add('active');
     }
 
-    function setNavActive(id) {
-        document.getElementById('navHome').classList.toggle('active', id === 'screen-grid');
-        document.getElementById('navCategories').classList.toggle('active', id === 'screen-categories' || id === 'screen-category-channels');
-        document.getElementById('navSettings').classList.toggle('active', id === 'screen-settings');
-    }
-
     function activeScreenId() {
         var el = document.querySelector('.screen.active');
         return el ? el.id : '';
     }
 
     function switchToScreen(id) {
+        // The picture only runs on the Live TV screen and full screen.
+        if (id !== 'screen-live') stopPlayback();
         showScreen(id);
-        setNavActive(id);
+        markMenu();
 
-        if (id === 'screen-grid') {
-            Focus.setZone(visibleFavorites().length ? 'favoritesRow' : 'iconRail', 0, 0);
-        } else if (id === 'screen-categories') {
-            renderCategoriesScreen();
-            Focus.setZone(state.categories.length ? 'categoriesGrid' : 'iconRail', state.categories.length ? 0 : 1, 0);
+        if (id === 'screen-live') {
+            refreshLiveList(false);
+            if (state.liveList.length) focusLiveList();
+            else Focus.setZone('sideMenu', currentMenuRow(), 0);
         } else if (id === 'screen-settings') {
             renderPlaylistList();
             renderAppVersion();
@@ -402,27 +362,325 @@
         }
     }
 
-    document.getElementById('navHome').addEventListener('click', function () { switchToScreen('screen-grid'); });
-    document.getElementById('navCategories').addEventListener('click', function () { switchToScreen('screen-categories'); });
+    // ==========================================================================
+    // Side menu: Live TV (every channel), Favorites, one entry per category of
+    // the active playlists, and Settings. Moving through it changes the channel
+    // list at once; OK or Right goes into the list.
+    // ==========================================================================
+    function menuButtons() {
+        var rows = [[document.getElementById('navLive')], [document.getElementById('navFavorites')]];
+        var cats = document.querySelectorAll('#menuCategories .menu-item');
+        for (var i = 0; i < cats.length; i++) rows.push([cats[i]]);
+        rows.push([document.getElementById('navSettings')]);
+        return rows;
+    }
+
+    function sectionForRow(row) {
+        if (row === 0) return { type: 'all' };
+        if (row === 1) return { type: 'favorites' };
+        return row - 2 < state.categories.length ? { type: 'category', index: row - 2 } : null;
+    }
+
+    function rowForSection(section) {
+        if (section.type === 'favorites') return 1;
+        if (section.type === 'category') return 2 + section.index;
+        return 0;
+    }
+
+    function sameSection(a, b) {
+        return a.type === b.type && (a.type !== 'category' || a.index === b.index);
+    }
+
+    function sectionChannels(section) {
+        if (section.type === 'favorites') return visibleFavorites();
+        if (section.type === 'category') return (state.categories[section.index] || { channels: [] }).channels;
+        return state.channels;
+    }
+
+    function sectionTitle(section) {
+        if (section.type === 'favorites') return 'Favorites';
+        if (section.type === 'category') return (state.categories[section.index] || { name: 'Channels' }).name;
+        return 'Live TV';
+    }
+
+    function sectionContext(section) {
+        return section.type === 'favorites' ? 'favorites' : 'category';
+    }
+
+    function currentMenuRow() {
+        if (activeScreenId() === 'screen-settings' || activeScreenId() === 'screen-add') return menuButtons().length - 1;
+        return rowForSection(state.section);
+    }
+
+    // Highlights the menu entry of what is showing.
+    function markMenu() {
+        var rows = menuButtons();
+        var current = currentMenuRow();
+        for (var i = 0; i < rows.length; i++) rows[i][0].classList.toggle('active', i === current);
+    }
+
+    function renderSideMenu() {
+        // A category that no longer exists (playlist switched off): back to everything.
+        if (state.section.type === 'category' && !state.categories[state.section.index]) state.section = { type: 'all' };
+
+        var box = document.getElementById('menuCategories');
+        box.innerHTML = '';
+        var playlistIds = {};
+        var playlistCount = 0;
+        state.categories.forEach(function (cat) {
+            if (!playlistIds[cat.playlistId]) { playlistIds[cat.playlistId] = true; playlistCount++; }
+        });
+        var frag = document.createDocumentFragment();
+        var lastPlaylistId = null;
+        state.categories.forEach(function (cat, i) {
+            // With several playlists active, their categories stay apart under a header each.
+            if (playlistCount > 1 && cat.playlistId !== lastPlaylistId) {
+                var header = document.createElement('div');
+                header.className = 'menu-header';
+                header.textContent = cat.playlistName || 'Playlist';
+                frag.appendChild(header);
+            }
+            lastPlaylistId = cat.playlistId;
+
+            var btn = document.createElement('button');
+            btn.className = 'menu-item';
+            btn.tabIndex = -1;
+            var label = document.createElement('span');
+            label.className = 'menu-label';
+            label.textContent = cat.name;
+            var count = document.createElement('span');
+            count.className = 'menu-count';
+            count.textContent = cat.channels.length;
+            btn.appendChild(label);
+            btn.appendChild(count);
+            btn.addEventListener('click', function () { openSection({ type: 'category', index: i }); });
+            frag.appendChild(btn);
+        });
+        box.appendChild(frag);
+        updateMenuCounts();
+        markMenu();
+    }
+
+    function updateMenuCounts() {
+        document.getElementById('navLiveCount').textContent = state.channels.length || '';
+        document.getElementById('navFavoritesCount').textContent = visibleFavorites().length || '';
+    }
+
+    // OK on a menu entry: show that section and go into its channel list.
+    function openSection(section) {
+        state.section = section;
+        if (activeScreenId() !== 'screen-live') showScreen('screen-live');
+        refreshLiveList(true);
+        markMenu();
+        if (state.liveList.length) focusLiveList();
+    }
+
+    document.getElementById('navLive').addEventListener('click', function () { openSection({ type: 'all' }); });
+    document.getElementById('navFavorites').addEventListener('click', function () { openSection({ type: 'favorites' }); });
     document.getElementById('navSettings').addEventListener('click', function () { switchToScreen('screen-settings'); });
 
-    Focus.zones.iconRail = {
-        getMatrix: function () {
-            return [[document.getElementById('navHome')], [document.getElementById('navCategories')], [document.getElementById('navSettings')]];
+    Focus.zones.sideMenu = {
+        getMatrix: menuButtons,
+        // Moving through the menu on the Live TV screen shows each section's
+        // channels straight away (after a short pause, so holding a key down
+        // does not rebuild the list for every entry passed).
+        afterApply: function (row) {
+            if (state.menuTimer) { clearTimeout(state.menuTimer); state.menuTimer = null; }
+            if (activeScreenId() !== 'screen-live') return;
+            var section = sectionForRow(row);
+            if (!section || sameSection(section, state.section)) return;
+            state.menuTimer = setTimeout(function () {
+                state.menuTimer = null;
+                if (activeScreenId() !== 'screen-live' || Focus.currentZone !== 'sideMenu') return;
+                state.section = section;
+                refreshLiveList(true);
+                markMenu();
+            }, 150);
         },
         onEdge: function (dir) {
             if (dir !== 'right') return;
-            if (document.getElementById('screen-categories').classList.contains('active') && state.categories.length) {
-                Focus.setZone('categoriesGrid', 0, 0);
-            } else if (document.getElementById('screen-category-channels').classList.contains('active')) {
-                Focus.setZone('categoryChannelsGrid', 0, 0);
-            } else if (document.getElementById('screen-settings').classList.contains('active')) {
+            var screen = activeScreenId();
+            if (screen === 'screen-settings') {
                 Focus.setZone('playlistList', 0, 0);
-            } else if (visibleFavorites().length) {
-                Focus.setZone('favoritesRow', 0, 0);
+            } else if (screen === 'screen-live') {
+                // A section the pause above has not shown yet: show it now.
+                var section = sectionForRow(Focus.row);
+                if (section && !sameSection(section, state.section)) {
+                    if (state.menuTimer) { clearTimeout(state.menuTimer); state.menuTimer = null; }
+                    state.section = section;
+                    refreshLiveList(true);
+                    markMenu();
+                }
+                if (state.liveList.length) focusLiveList();
             }
         }
     };
+
+    // ==========================================================================
+    // Live TV screen: the channel list of the section chosen in the menu, a
+    // preview window and the channel's details. Only the rows that fit are
+    // built, so a list of 10,000 channels costs the same as one of 10.
+    // The list is not a Focus matrix: it has its own index (state.liveIndex)
+    // and its own key handling (handleLiveKey), under the zone name 'liveList'.
+    // ==========================================================================
+    Focus.zones.liveList = { getMatrix: function () { return []; } };
+
+    function indexByUrl(list, url) {
+        for (var i = 0; i < list.length; i++) if (list[i].url === url) return i;
+        return -1;
+    }
+
+    // Rebuilds the list for the current section. Unless reset, it stays on the
+    // channel it was on; otherwise it starts on the channel that is playing.
+    function refreshLiveList(reset) {
+        var current = state.liveList[state.liveIndex];
+        var want = (!reset && current) ? current.url : (state.nowPlaying ? state.nowPlaying.url : null);
+        state.liveList = sectionChannels(state.section);
+        var idx = want ? indexByUrl(state.liveList, want) : -1;
+        state.liveIndex = idx === -1 ? 0 : idx;
+        var n = state.liveList.length;
+        document.getElementById('liveTitle').textContent = sectionTitle(state.section);
+        document.getElementById('liveCount').textContent = n + (n === 1 ? ' channel' : ' channels');
+        renderLiveList();
+    }
+
+    function renderLiveList() {
+        var box = document.getElementById('liveList');
+        box.innerHTML = '';
+        var list = state.liveList;
+        if (!list.length) {
+            var hint = document.createElement('div');
+            hint.className = 'empty-hint';
+            hint.textContent = state.section.type === 'favorites'
+                ? 'No favorites yet. Press ▶ on a channel to add it.'
+                : 'No channels yet. Add or switch on a playlist in Settings.';
+            box.appendChild(hint);
+            updateLiveInfo();
+            return;
+        }
+        if (box.clientHeight) state.liveRows = Math.max(3, Math.floor(box.clientHeight / LIVE_ROW_H));
+        var rows = state.liveRows;
+        var start = Math.max(0, Math.min(state.liveIndex - Math.floor(rows / 2), list.length - rows));
+        var end = Math.min(list.length, start + rows);
+        var hasFocus = Focus.currentZone === 'liveList';
+        var playingUrl = state.nowPlaying ? state.nowPlaying.url : null;
+        var frag = document.createDocumentFragment();
+        for (var i = start; i < end; i++) {
+            var ch = list[i];
+            var row = document.createElement('div');
+            row.className = 'live-row' + (i === state.liveIndex ? (hasFocus ? ' selected focused' : ' selected') : '');
+
+            var num = document.createElement('span');
+            num.className = 'live-num';
+            num.textContent = ch.number ? String(ch.number) : '';
+            var logo = document.createElement('span');
+            logo.className = 'live-logo';
+            if (ch.logo) logo.style.backgroundImage = 'url(' + JSON.stringify(ch.logo) + ')';
+            else logo.textContent = (ch.name || '?').charAt(0).toUpperCase();
+            var name = document.createElement('span');
+            name.className = 'live-name';
+            name.textContent = ch.name;
+            row.appendChild(num);
+            row.appendChild(logo);
+            row.appendChild(name);
+            if (ch.url === playingUrl) {
+                var playing = document.createElement('span');
+                playing.className = 'live-playing';
+                playing.textContent = 'ON';
+                row.appendChild(playing);
+            }
+            if (isFavorited(ch)) {
+                var star = document.createElement('span');
+                star.className = 'live-mark';
+                star.textContent = '★';
+                row.appendChild(star);
+            }
+            frag.appendChild(row);
+        }
+        box.appendChild(frag);
+        updateLiveInfo();
+    }
+
+    // Details of the channel the list is on, under the preview window.
+    function updateLiveInfo() {
+        var ch = state.liveList[state.liveIndex] || null;
+        var isCurrent = !!(ch && state.nowPlaying && state.nowPlaying.url === ch.url);
+        document.getElementById('liveInfoName').textContent = ch ? ch.name : 'MyTvApp';
+        document.getElementById('liveInfoNumber').textContent = ch && ch.number ? String(ch.number) : '';
+        var parts = [];
+        if (ch && ch.group) parts.push(ch.group);
+        if (ch && ch.playlistName) parts.push(ch.playlistName);
+        document.getElementById('liveInfoGroup').textContent = parts.join(' · ');
+        document.getElementById('liveInfoLogo').style.backgroundImage = ch && ch.logo ? ('url(' + JSON.stringify(ch.logo) + ')') : '';
+        document.getElementById('liveInfoFav').hidden = !(ch && isFavorited(ch));
+        document.getElementById('liveInfoLive').hidden = !(isCurrent && state.isPlaying);
+        document.getElementById('liveStatus').textContent = isCurrent ? state.statusText : '';
+        document.getElementById('previewHint').hidden = !!state.nowPlaying;
+    }
+
+    function updateClock() {
+        var d = new Date();
+        var m = d.getMinutes();
+        document.getElementById('liveClock').textContent = d.getHours() + ':' + (m < 10 ? '0' : '') + m;
+    }
+    updateClock();
+    setInterval(updateClock, 20000);
+
+    function focusLiveList() {
+        Focus.setZone('liveList', 0, 0);   // clears the menu's highlight
+        renderLiveList();
+        schedulePreview();
+    }
+
+    function moveLive(delta) {
+        var n = state.liveList.length;
+        if (!n) return;
+        if (Math.abs(delta) === 1) state.liveIndex = (state.liveIndex + delta + n) % n;
+        else state.liveIndex = Math.max(0, Math.min(n - 1, state.liveIndex + delta));
+        renderLiveList();
+        schedulePreview();
+    }
+
+    // Starts the preview of the channel the list rests on.
+    function schedulePreview() {
+        if (state.previewTimer) { clearTimeout(state.previewTimer); state.previewTimer = null; }
+        if (activeScreenId() !== 'screen-live') return;
+        state.previewTimer = setTimeout(function () {
+            state.previewTimer = null;
+            var ch = state.liveList[state.liveIndex];
+            if (!ch || state.fullscreen || activeScreenId() !== 'screen-live') return;
+            if (state.nowPlaying && state.nowPlaying.url === ch.url) return;
+            tune(ch, sectionContext(state.section), state.liveList, sectionTitle(state.section));
+        }, PREVIEW_DELAY_MS);
+    }
+
+    function handleLiveKey(code) {
+        var ch = state.liveList[state.liveIndex];
+        switch (code) {
+            case KEYCODE.UP: moveLive(-1); break;
+            case KEYCODE.DOWN: moveLive(1); break;
+            case KEYCODE.CH_UP: moveLive(-state.liveRows); break;
+            case KEYCODE.CH_DOWN: moveLive(state.liveRows); break;
+            case KEYCODE.LEFT: case KEYCODE.BACK:
+                Focus.setZone('sideMenu', currentMenuRow(), 0);
+                break;
+            case KEYCODE.ENTER:
+                if (!ch) break;
+                // Already in the preview: just make it full screen, no restart.
+                if (state.nowPlaying && state.nowPlaying.url === ch.url) enterFullscreen();
+                else playChannel(ch, sectionContext(state.section), state.liveList, sectionTitle(state.section));
+                break;
+            case KEYCODE.RIGHT: if (ch) toggleFavorite(ch); break;
+            case KEYCODE.MEDIA_PLAY_PAUSE: if (state.nowPlaying) togglePlayPause(); break;
+        }
+    }
+
+    // After a favorite is added or removed.
+    function liveFavoritesChanged() {
+        updateMenuCounts();
+        if (state.section.type === 'favorites') refreshLiveList(false);
+        else renderLiveList();
+    }
 
     // ==========================================================================
     // M3U parsing
@@ -505,7 +763,6 @@
                 .sort(function (a, b) { return a.name.localeCompare(b.name); });
             state.categories = state.categories.concat(groups);
         });
-        state.activeCategoryIndex = 0;
     }
 
     // ==========================================================================
@@ -695,8 +952,8 @@
         });
         state.channels = all;
         rebuildCategories();
-        renderHero();
-        renderFavoritesRow();
+        renderSideMenu();
+        refreshLiveList(false);
     }
 
     // Start of the app: every active playlist comes from its stored copy when
@@ -756,12 +1013,11 @@
         downloadPlaylist(pl).then(function (r) {
             if (r.text === oldText) { logEvent('playlist "' + pl.name + '": no changes'); return; }
             var screen = activeScreenId();
-            var idle = (screen === 'screen-grid' || screen === 'screen-settings') && !state.nowPlaying &&
+            var idle = (screen === 'screen-live' || screen === 'screen-settings') && !state.fullscreen &&
                 state.activePlaylistIds.indexOf(pl.id) !== -1;
             if (!idle) { logEvent('playlist "' + pl.name + '" refreshed: shows on the next start'); return; }
             state.channelsByPlaylist[pl.id] = r.channels;
             rebuildChannels();
-            if (screen === 'screen-grid') Focus.apply();
             logEvent('playlist "' + pl.name + '" refreshed: ' + r.channels.length + ' channels');
         }).catch(function (err) {
             logEvent('playlist "' + pl.name + '" refresh failed: ' + ((err && err.message) || err));
@@ -835,215 +1091,8 @@
             showToast('Removed from Favorites');
         }
         saveFavorites();
-        renderFavoritesRow();
+        liveFavoritesChanged();
         updateFavoriteButton();
-    }
-
-    // ==========================================================================
-    // Hero banner
-    // ==========================================================================
-    function renderHero() {
-        var featured = visibleFavorites()[0] || (state.categories[0] && state.categories[0].channels[0]) || null;
-        var bg = document.getElementById('heroBg');
-        var title = document.getElementById('heroTitle');
-        var subtitle = document.getElementById('heroSubtitle');
-
-        if (!featured) {
-            bg.style.backgroundImage = '';
-            title.textContent = 'MyTvApp';
-            subtitle.textContent = 'Add a playlist to get started';
-            return;
-        }
-
-        bg.style.backgroundImage = featured.logo ? ('url(' + JSON.stringify(featured.logo) + ')') : '';
-        title.textContent = featured.name;
-        subtitle.textContent = featured.group || '';
-    }
-
-    // ==========================================================================
-    // Rendering — Favorites row (Home screen)
-    // ==========================================================================
-    function renderFavoritesRow() {
-        var row = document.getElementById('favoritesRow');
-        row.innerHTML = '';
-
-        var visible = visibleFavorites();
-        if (!visible.length) {
-            var hint = document.createElement('div');
-            hint.className = 'empty-hint';
-            hint.textContent = 'No favorites yet — press the Favorite button while watching a channel';
-            row.appendChild(hint);
-            return;
-        }
-
-        visible.forEach(function (ch) {
-            row.appendChild(buildChannelTile(ch, function () { playChannel(ch, 'favorites'); }));
-        });
-    }
-
-    Focus.zones.favoritesRow = {
-        getMatrix: function () { return [Array.prototype.slice.call(document.querySelectorAll('#favoritesRow .channel-tile'))]; }
-    };
-    leftEdgeToRail('favoritesRow');
-
-    // ==========================================================================
-    // Rendering — Categories browse screen. A two-column alphabetical list:
-    // more scannable than tiles for 100+ text entries with no imagery, and
-    // the row-pair layout (two per row, filled in order) keeps vertical
-    // scrolling to half of a single-column list.
-    // ==========================================================================
-    function renderCategoriesScreen() {
-        var grid = document.getElementById('categoriesGrid');
-        grid.innerHTML = '';
-
-        if (!state.categories.length) {
-            var hint = document.createElement('div');
-            hint.className = 'empty-hint';
-            hint.textContent = 'No channels yet — activate a playlist in Settings';
-            grid.appendChild(hint);
-            return;
-        }
-
-        var section = null;
-        var lastPlaylistId = null;
-        var frag = document.createDocumentFragment();
-        state.categories.forEach(function (cat, i) {
-            if (cat.playlistId !== lastPlaylistId) {
-                lastPlaylistId = cat.playlistId;
-                var header = document.createElement('div');
-                header.className = 'category-section-header';
-                header.textContent = cat.playlistName || 'Playlist';
-                frag.appendChild(header);
-
-                section = document.createElement('div');
-                section.className = 'category-section-grid';
-                frag.appendChild(section);
-            }
-
-            var row = document.createElement('button');
-            row.className = 'category-row-item';
-            row.tabIndex = -1;
-
-            var letter = document.createElement('span');
-            letter.className = 'category-letter';
-            letter.textContent = cat.name.charAt(0).toUpperCase();
-            row.appendChild(letter);
-
-            var label = document.createElement('span');
-            label.className = 'category-label';
-            label.textContent = cat.name;
-            row.appendChild(label);
-
-            var count = document.createElement('span');
-            count.className = 'category-count';
-            count.textContent = cat.channels.length;
-            row.appendChild(count);
-
-            row.addEventListener('click', function () { openCategoryChannels(i); });
-            section.appendChild(row);
-        });
-        grid.appendChild(frag);
-    }
-
-    Focus.zones.categoriesGrid = {
-        getMatrix: function () { return cachedRows('categories', '#categoriesGrid .category-row-item'); }
-    };
-    leftEdgeToRail('categoriesGrid');
-
-    // ==========================================================================
-    // Rendering — Channels within a selected category
-    // ==========================================================================
-    function openCategoryChannels(index) {
-        state.activeCategoryIndex = index;
-        renderCategoryChannelsScreen();
-        showScreen('screen-category-channels');
-        setNavActive('screen-category-channels');
-        Focus.setZone('categoryChannelsGrid', 0, 0);
-    }
-
-    function renderCategoryChannelsScreen() {
-        var cat = state.categories[state.activeCategoryIndex];
-        document.getElementById('categoryChannelsTitle').textContent = cat ? cat.name + ' Channels' : 'Channels';
-        var grid = document.getElementById('categoryChannelsGrid');
-        grid.innerHTML = '';
-        state.renderedChannelCount = 0;
-        if (!cat) return;
-        appendChannelBatch();
-    }
-
-    function appendChannelBatch() {
-        var cat = state.categories[state.activeCategoryIndex];
-        if (!cat) return false;
-        var start = state.renderedChannelCount;
-        var end = Math.min(start + CHANNEL_BATCH, cat.channels.length);
-        if (start >= end) return false;
-        var grid = document.getElementById('categoryChannelsGrid');
-        var frag = document.createDocumentFragment();
-        for (var i = start; i < end; i++) {
-            (function (ch) {
-                frag.appendChild(buildChannelTile(ch, function () { playChannel(ch, 'category'); }));
-            })(cat.channels[i]);
-        }
-        grid.appendChild(frag);
-        state.renderedChannelCount = end;
-        return true;
-    }
-
-    Focus.zones.categoryChannelsGrid = {
-        getMatrix: function () { return cachedRows('channels', '#categoryChannelsGrid .channel-tile'); },
-        // Load the next batch when focus reaches the last two rendered rows.
-        afterApply: function (row, rowCount) {
-            if (row >= rowCount - 2) appendChannelBatch();
-        }
-    };
-    leftEdgeToRail('categoryChannelsGrid');
-
-    // ==========================================================================
-    // Shared channel tile builder
-    // ==========================================================================
-    function buildChannelTile(ch, onClick) {
-        var tile = document.createElement('button');
-        tile.className = 'channel-tile';
-        tile.tabIndex = -1;
-        tile.__channel = ch;
-
-        var thumb = document.createElement('div');
-        thumb.className = 'tile-thumb';
-        if (ch.logo) {
-            thumb.style.backgroundImage = 'url(' + JSON.stringify(ch.logo) + ')';
-        } else {
-            thumb.appendChild(fallbackLetter(ch.name));
-        }
-        thumb.appendChild(liveBadge());
-        if (isFavorited(ch)) {
-            var star = document.createElement('div');
-            star.className = 'fav-badge';
-            star.textContent = '\u2605';
-            thumb.appendChild(star);
-        }
-
-        var nameEl = document.createElement('div');
-        nameEl.className = 'tile-name';
-        nameEl.textContent = ch.name;
-
-        tile.appendChild(thumb);
-        tile.appendChild(nameEl);
-        tile.addEventListener('click', onClick);
-        return tile;
-    }
-
-    function liveBadge() {
-        var el = document.createElement('div');
-        el.className = 'live-badge';
-        el.textContent = 'LIVE';
-        return el;
-    }
-
-    function fallbackLetter(name) {
-        var el = document.createElement('div');
-        el.className = 'tile-fallback';
-        el.textContent = (name || '?').charAt(0).toUpperCase();
-        return el;
     }
 
     // ==========================================================================
@@ -1341,8 +1390,9 @@
     // Right after the start, with nobody in the middle of something, restart
     // into the update at once. Otherwise it waits for the next start.
     function applyUpdateOrAnnounce(version, manual) {
-        var idle = activeScreenId() !== 'screen-player' && activeScreenId() !== 'screen-add' &&
-            document.getElementById('confirmModal').hidden && !state.nowPlaying;
+        // Not while watching full screen or typing; a preview does not count.
+        var idle = !state.fullscreen && activeScreenId() !== 'screen-add' &&
+            document.getElementById('confirmModal').hidden;
         if (idle && (manual || Date.now() - bootTime < UPDATE_RESTART_WINDOW_MS)) {
             showToast('Updating to ' + version + '\u2026');
             setTimeout(function () { location.reload(); }, 1500);
@@ -1363,7 +1413,7 @@
             return rows;
         }
     };
-    leftEdgeToRail('playlistList');
+    leftEdgeToMenu('playlistList');
 
     function toggleActivePlaylist(pl) {
         var idx = state.activePlaylistIds.indexOf(pl.id);
@@ -1489,37 +1539,133 @@
 
     document.getElementById('loadPlaylistBtn').addEventListener('click', submitPlaylistUrl);
     document.getElementById('cancelAddBtn').addEventListener('click', function () {
-        switchToScreen(editingPlaylistId ? 'screen-settings' : 'screen-grid');
+        switchToScreen('screen-settings');
     });
 
     // ==========================================================================
-    // Player screen — fullscreen, favorite toggled via a real focusable button
-    // (long-press proved unreliable on this remote/WebKit combination).
+    // Playing a channel. One playback serves both views: the preview window on
+    // the Live TV screen and the full-screen player. Switching between them
+    // only moves the picture; the stream is not restarted.
     // ==========================================================================
-    function playChannel(ch, context, list) {
+
+    // Where the picture goes, in page pixels: the whole screen, or the preview box.
+    function videoRect() {
+        if (state.fullscreen) return { x: 0, y: 0, w: 1920, h: 1080 };
+        var r = document.getElementById('previewBox').getBoundingClientRect();
+        return { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) };
+    }
+
+    // The Samsung player always counts in a 1920x1080 screen.
+    function avplayRect() {
+        var r = videoRect();
+        var k = 1920 / (window.innerWidth || 1920);
+        return { x: Math.round(r.x * k), y: Math.round(r.y * k), w: Math.round(r.w * k), h: Math.round(r.h * k) };
+    }
+
+    function placeVideo() {
+        var box = document.getElementById('screen-player');
+        if (state.fullscreen) {
+            box.classList.remove('preview');
+            box.style.left = box.style.top = box.style.width = box.style.height = '';
+        } else {
+            var r = videoRect();
+            box.classList.add('preview');
+            box.style.left = r.x + 'px';
+            box.style.top = r.y + 'px';
+            box.style.width = r.w + 'px';
+            box.style.height = r.h + 'px';
+        }
+        if (state.avplayOpen) {
+            try {
+                var a = avplayRect();
+                webapis.avplay.setDisplayRect(a.x, a.y, a.w, a.h);
+            } catch (e) {
+                logEvent('moving the picture failed: ' + ((e && e.name) || e));
+            }
+        }
+    }
+
+    // Starts a channel in the view that is showing.
+    function tune(ch, context, list, title) {
         var current = state.nowPlaying || state.lastExited;
         if (current && current.url !== ch.url) {
-            state.prevChannel = { ch: current, context: state.zapContext, list: state.zapList };
+            state.prevChannel = { ch: current, context: state.zapContext, list: state.zapList, title: state.zapTitle };
         }
         state.lastExited = null;
-        var from = activeScreenId();
-        if (from !== 'screen-player') {
-            state.returnTo = { screen: from, zone: Focus.currentZone, row: Focus.row, col: Focus.col, categoryIndex: state.activeCategoryIndex };
-        }
         state.nowPlaying = ch;
         state.zapContext = context;
-        state.zapList = list || (context === 'favorites' ? visibleFavorites() : (state.categories[state.activeCategoryIndex] || { channels: [] }).channels);
+        state.zapList = list && list.length ? list : [ch];
+        state.zapTitle = title || 'Channels';
         saveLastChannel(ch, context);
         closeChannelPanel();
         endInfoInteractive();
-        showScreen('screen-player');
+        placeVideo();
         startPlayback();
+        if (!state.fullscreen) renderLiveList();
+    }
+
+    // Starts a channel full screen.
+    function playChannel(ch, context, list, title) {
+        if (!state.fullscreen) {
+            if (state.previewTimer) { clearTimeout(state.previewTimer); state.previewTimer = null; }
+            state.fullscreen = true;
+            document.documentElement.classList.add('video-full');
+            showScreen('screen-player');
+        }
+        tune(ch, context, list, title);
+    }
+
+    // Preview window -> full screen, same stream.
+    function enterFullscreen() {
+        if (state.previewTimer) { clearTimeout(state.previewTimer); state.previewTimer = null; }
+        state.fullscreen = true;
+        document.documentElement.classList.add('video-full');
+        showScreen('screen-player');
+        placeVideo();
+        showOverlay();
+    }
+
+    // Full screen -> back to the Live TV screen; the channel keeps playing in
+    // the preview window and the list moves to it.
+    function exitFullscreen() {
+        state.fullscreen = false;
+        document.documentElement.classList.remove('video-full');
+        closeChannelPanel();
+        endInfoInteractive();
+        document.getElementById('playerOverlay').classList.remove('visible');
+        if (state.digitTimer) { clearTimeout(state.digitTimer); state.digitTimer = null; }
+        state.digitBuffer = '';
+        document.getElementById('numberEntry').hidden = true;
+
+        showScreen('screen-live');
+        // Zapped to a channel outside the section that was showing: show them all.
+        if (state.nowPlaying && indexByUrl(sectionChannels(state.section), state.nowPlaying.url) === -1) {
+            state.section = { type: 'all' };
+        }
+        refreshLiveList(true);
+        markMenu();
+        placeVideo();
+        focusLiveList();
+    }
+
+    // Stops the picture for good (leaving the Live TV screen).
+    function stopPlayback() {
+        if (state.previewTimer) { clearTimeout(state.previewTimer); state.previewTimer = null; }
+        state.playToken = (state.playToken || 0) + 1;
+        stopEngines();
+        state.isPlaying = false;
+        if (state.nowPlaying) state.lastExited = state.nowPlaying;
+        state.nowPlaying = null;
+        state.statusText = '';
+        state.fullscreen = false;
+        document.documentElement.classList.remove('video-full');
+        document.getElementById('screen-player').classList.remove('preview');
     }
 
     function playPrevious() {
         var p = state.prevChannel;
         if (!p) { showToast('No previous channel yet'); return; }
-        playChannel(p.ch, p.context, p.list);
+        playChannel(p.ch, p.context, p.list, p.title);
     }
 
     function saveLastChannel(ch, context) {
@@ -1530,33 +1676,47 @@
         } catch (e) { /* non-fatal */ }
     }
 
-    // Startup: reopen the last watched channel if its playlist loaded.
-    function reopenLastChannel() {
+    // Start of the app: put the list on the last watched channel, so its
+    // preview starts. With "Open the last channel when the app starts" on, it
+    // goes straight to full screen.
+    function restoreLastChannel() {
         var saved = null;
         try { saved = JSON.parse(localStorage.getItem(LAST_CHANNEL_KEY) || 'null'); } catch (e) { saved = null; }
-        if (!saved || !saved.url || !reopenLast) return;
-        // The previous start reopened a channel and never got as far as a
+        if (!saved || !saved.url || activeScreenId() !== 'screen-live') return;
+
+        var section = null;
+        if (saved.context === 'favorites' && indexByUrl(visibleFavorites(), saved.url) !== -1) {
+            section = { type: 'favorites' };
+        } else if (indexByUrl(state.channels, saved.url) !== -1) {
+            section = { type: 'all' };
+            for (var i = 0; i < state.categories.length; i++) {
+                var cat = state.categories[i];
+                if (cat.playlistId === saved.playlistId && cat.name === saved.group && indexByUrl(cat.channels, saved.url) !== -1) {
+                    section = { type: 'category', index: i };
+                    break;
+                }
+            }
+        }
+        if (!section) return;
+
+        state.section = section;
+        refreshLiveList(true);
+        state.liveIndex = Math.max(0, indexByUrl(state.liveList, saved.url));
+        markMenu();
+        focusLiveList();
+        if (!reopenLast) return;
+
+        // The previous start went full screen and never got as far as a
         // picture or a key press: do not walk into the same problem again.
         var pending = null;
         try { pending = localStorage.getItem(REOPEN_PENDING_KEY); } catch (e) { pending = null; }
         if (pending === '1') {
             clearReopenPending();
-            logEvent('last channel not reopened: it did not start last time');
-            showToast('Last channel not reopened: it did not start last time');
+            logEvent('last channel not opened full screen: it did not start last time');
             return;
         }
         try { localStorage.setItem(REOPEN_PENDING_KEY, '1'); } catch (e) { /* non-fatal */ }
-        if (saved.context === 'favorites') {
-            var favs = visibleFavorites();
-            var fav = favs.find(function (f) { return f.url === saved.url; });
-            if (fav) { playChannel(fav, 'favorites', favs); return; }
-        }
-        for (var i = 0; i < state.categories.length; i++) {
-            var cat = state.categories[i];
-            if (cat.playlistId !== saved.playlistId || cat.name !== saved.group) continue;
-            var ch = cat.channels.find(function (c) { return c.url === saved.url; });
-            if (ch) { state.activeCategoryIndex = i; playChannel(ch, 'category', cat.channels); return; }
-        }
+        playChannel(state.liveList[state.liveIndex], sectionContext(section), state.liveList, sectionTitle(section));
     }
 
     function clearReopenPending() {
@@ -1569,7 +1729,7 @@
         var idx = list.findIndex(function (c) { return c.url === state.nowPlaying.url; });
         if (idx === -1) idx = 0;
         idx = (idx + delta + list.length) % list.length;
-        playChannel(list[idx], state.zapContext, list);
+        playChannel(list[idx], state.zapContext, list, state.zapTitle);
     }
 
     // Playback strategy: on a Samsung TV, use the TV's built-in player first
@@ -1587,8 +1747,16 @@
     var hasAvplay = !!(window.webapis && window.webapis.avplay);
     var avplayObject = null;
 
+    // Full screen only: in the preview window the status line under it says
+    // the same, and moving through the list would raise one message per dead channel.
+    function unavailableToast() {
+        if (state.fullscreen) showToast('This channel is unavailable right now');
+    }
+
     function setPlayerStatus(msg) {
+        state.statusText = msg;
         document.getElementById('playerStatus').textContent = msg;
+        if (!state.fullscreen) updateLiveInfo();
     }
 
     function stopEngines() {
@@ -1642,7 +1810,7 @@
             state.playFailed = true;
             logEvent('could not play: ' + (state.playErrors.join(' | ') || 'no player available'));
             setPlayerStatus('Could not play \u2014 ' + (state.playErrors.join(' | ') || 'no player available'));
-            showToast('This channel is unavailable right now');
+            unavailableToast();
             return;
         }
         state.engine = engine;
@@ -1725,7 +1893,7 @@
         logEvent('stream stopped: ' + reason);
         setPlayerStatus('Stream stopped: ' + reason);
         showOverlay();
-        showToast('This channel is unavailable right now');
+        unavailableToast();
     }
 
     function startAvplay(ch, token) {
@@ -1743,8 +1911,9 @@
         try {
             av.open(ch.url);
             state.avplayOpen = true;
-            // setDisplayRect always uses a 1920x1080 base (Samsung AVPlay guide): full screen.
-            av.setDisplayRect(0, 0, 1920, 1080);
+            // Full screen, or the preview window on the Live TV screen.
+            var area = avplayRect();
+            av.setDisplayRect(area.x, area.y, area.w, area.h);
             // Picture tuning (optional): adaptive streams start at the highest
             // quality the stream offers instead of the TV's default.
             if (pictureTuning) {
@@ -1851,7 +2020,7 @@
                 state.isPlaying = false;
                 setPlayerStatus('Stream stopped: ' + data.details);
                 showOverlay();
-                showToast('This channel is unavailable right now');
+                unavailableToast();
             } else {
                 engineFailed(token, 'hls.js: ' + data.details);
             }
@@ -1875,7 +2044,7 @@
             state.isPlaying = false;
             setPlayerStatus('Stream stopped: ' + reason);
             showOverlay();
-            showToast('This channel is unavailable right now');
+            unavailableToast();
         } else {
             engineFailed(state.playToken, reason);
         }
@@ -1941,9 +2110,7 @@
         state.panelIndex = idx < 0 ? 0 : idx;
         state.panelOpen = true;
         endInfoInteractive();
-        var cat = state.categories[state.activeCategoryIndex];
-        document.getElementById('channelPanelTitle').textContent =
-            state.zapContext === 'favorites' ? 'Favorites' : (cat ? cat.name : 'Channels');
+        document.getElementById('channelPanelTitle').textContent = state.zapTitle || 'Channels';
         document.getElementById('channelPanel').hidden = false;
         renderChannelPanel();
     }
@@ -2018,10 +2185,10 @@
         if (!n) return;
         var list = state.zapList || [];
         var ch = list.find(function (c) { return c.number === n; });
-        if (ch) { playChannel(ch, state.zapContext, list); return; }
+        if (ch) { playChannel(ch, state.zapContext, list, state.zapTitle); return; }
         for (var i = 0; i < state.categories.length; i++) {
             var found = state.categories[i].channels.find(function (c) { return c.number === n; });
-            if (found) { state.activeCategoryIndex = i; playChannel(found, 'category', state.categories[i].channels); return; }
+            if (found) { playChannel(found, 'category', state.categories[i].channels, state.categories[i].name); return; }
         }
         showToast('No channel ' + n);
     }
@@ -2033,7 +2200,7 @@
                 case KEYCODE.DOWN: moveChannelPanel(1); break;
                 case KEYCODE.CH_UP: moveChannelPanel(-PANEL_ROWS); break;
                 case KEYCODE.CH_DOWN: moveChannelPanel(PANEL_ROWS); break;
-                case KEYCODE.ENTER: playChannel(state.zapList[state.panelIndex], state.zapContext, state.zapList); break;
+                case KEYCODE.ENTER: playChannel(state.zapList[state.panelIndex], state.zapContext, state.zapList, state.zapTitle); break;
                 case KEYCODE.BACK: case KEYCODE.LEFT: case KEYCODE.CH_LIST: closeChannelPanel(); break;
             }
             return;
@@ -2053,7 +2220,7 @@
             case KEYCODE.MEDIA_PLAY_PAUSE: togglePlayPause(); break;
             case KEYCODE.BACK:
                 if (state.infoInteractive) { endInfoInteractive(); document.getElementById('playerOverlay').classList.remove('visible'); }
-                else exitPlayerToGrid();
+                else exitFullscreen();
                 break;
         }
     }
@@ -2067,38 +2234,10 @@
         showOverlay();
     }
 
-    function exitPlayerToGrid() {
-        state.playToken = (state.playToken || 0) + 1;
-        stopEngines();
-        state.isPlaying = false;
-        state.lastExited = state.nowPlaying;
-        state.nowPlaying = null;
-        closeChannelPanel();
-        endInfoInteractive();
-        if (state.digitTimer) { clearTimeout(state.digitTimer); state.digitTimer = null; }
-        state.digitBuffer = '';
-        document.getElementById('numberEntry').hidden = true;
-
-        // Go back to where the channel was opened from.
-        var back = state.returnTo;
-        state.returnTo = null;
-        if (back && back.screen === 'screen-category-channels' && state.categories[state.activeCategoryIndex]) {
-            if (back.categoryIndex === state.activeCategoryIndex && document.querySelector('#categoryChannelsGrid .channel-tile')) {
-                showScreen('screen-category-channels');
-                setNavActive('screen-category-channels');
-                Focus.setZone('categoryChannelsGrid', back.row, back.col);
-            } else {
-                openCategoryChannels(state.activeCategoryIndex);
-            }
-        } else {
-            switchToScreen('screen-grid');
-        }
-    }
-
     // The TV takes the video hardware away when the app goes to the background
     // (Home key, another app). Without this the picture stays black on return.
     document.addEventListener('visibilitychange', function () {
-        if (!state.nowPlaying || activeScreenId() !== 'screen-player') return;
+        if (!state.nowPlaying) return;
         logEvent(document.hidden ? 'app hidden' : 'app visible again');
         if (document.hidden) {
             state.playToken = (state.playToken || 0) + 1;
@@ -2114,14 +2253,9 @@
     // ==========================================================================
     function handleBack() {
         if (!document.getElementById('confirmModal').hidden) { hideConfirm(); return; }
-        if (document.getElementById('screen-player').classList.contains('active')) { exitPlayerToGrid(); return; }
-        if (document.getElementById('screen-category-channels').classList.contains('active')) { switchToScreen('screen-categories'); return; }
-        if (document.getElementById('screen-add').classList.contains('active')) {
-            switchToScreen(editingPlaylistId ? 'screen-settings' : 'screen-grid');
-            return;
-        }
-        if (document.getElementById('screen-settings').classList.contains('active')) { switchToScreen('screen-grid'); return; }
-        if (document.getElementById('screen-categories').classList.contains('active')) { switchToScreen('screen-grid'); return; }
+        if (activeScreenId() === 'screen-add') { switchToScreen('screen-settings'); return; }
+        if (activeScreenId() === 'screen-settings') { switchToScreen('screen-live'); return; }
+        // Live TV with the remote in the menu (Back in the list goes to the menu first).
         showConfirm('Are you sure you want to exit the app?', 'Exit', exitApp);
     }
 
@@ -2175,6 +2309,9 @@
             return;
         }
 
+        // The Live TV channel list handles its own keys.
+        if (Focus.currentZone === 'liveList') { handleLiveKey(event.keyCode); return; }
+
         switch (event.keyCode) {
             case KEYCODE.UP: Focus.move('up'); break;
             case KEYCODE.DOWN: Focus.move('down'); break;
@@ -2196,10 +2333,10 @@
     logEvent('start ' + APP_VERSION + ' from ' + (window.MYTVAPP_SOURCE || (function () {
         try { return sessionStorage.getItem('mytvapp_source'); } catch (e) { return null; }
     })() || 'own page') + ', Samsung player ' + (hasAvplay ? 'yes' : 'no'));
-    Focus.setZone('iconRail', 0, 0);
+    Focus.setZone('sideMenu', 0, 0);
 
     // First run (or every playlist deleted): open the Playlists screen so the
     // one-press iptv-org presets are right there.
-    refreshActiveChannels({ screen: state.playlists.length ? 'screen-grid' : 'screen-settings', after: reopenLastChannel });
+    refreshActiveChannels({ screen: state.playlists.length ? 'screen-live' : 'screen-settings', after: restoreLastChannel });
     setTimeout(checkForUpdate, UPDATE_CHECK_DELAY_MS);
 });

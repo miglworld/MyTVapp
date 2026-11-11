@@ -14,7 +14,7 @@
 html, body {
 	width: 1920px;
 	height: 1080px;
-	background: #000000;
+	background: #070812;
 	color: #ffffff;
 	font-family: 'Samsung One', 'Noto Sans', Arial, sans-serif;
 	overflow: hidden;
@@ -45,51 +45,110 @@ button {
 	z-index: 2;
 }
 
-.rail-icon.focused {
-	transform: scale(1.15);
-	outline: none;
-	box-shadow: none;
-	background: #1a1a1a;
-}
-
 .favorite-btn.focused {
 	transform: scale(1.06);
 }
 
 /* ==========================================================================
-   Left icon rail
+   Side menu
    ========================================================================== */
-.icon-rail {
-	width: 110px;
+.sidebar {
+	width: 300px;
 	height: 100%;
-	background: #000000;
-	border-right: 1px solid #161616;
+	background: #0b0d1c;
+	border-right: 1px solid #171a33;
 	display: flex;
 	flex-direction: column;
-	align-items: center;
-	padding: 40px 0;
+	padding: 34px 18px 26px;
 	flex-shrink: 0;
 }
 
-.rail-icon {
-	width: 64px;
-	height: 64px;
-	border-radius: 50%;
+.brand {
+	font-size: 30px;
+	font-weight: 700;
+	letter-spacing: 0.5px;
+	color: #ffffff;
+	padding: 0 14px 26px;
+}
+
+.menu-item {
 	display: flex;
 	align-items: center;
-	justify-content: center;
-	color: #6c6c6c;
-	margin-bottom: 8px;
-	transition: color 0.15s, background 0.15s;
+	width: 100%;
+	height: 62px;
+	flex-shrink: 0;
+	padding: 0 14px;
+	margin-bottom: 6px;
+	border-radius: 12px;
+	font-size: 23px;
+	text-align: left;
+	color: #9aa0c3;
 }
 
-.rail-icon.active {
-	color: #ffffff;
-	background: #1a1a1a;
+.menu-icon {
+	flex-shrink: 0;
+	margin-right: 16px;
 }
 
-.rail-spacer {
+.menu-label {
 	flex: 1;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.menu-count {
+	flex-shrink: 0;
+	margin-left: 10px;
+	font-size: 17px;
+	color: #5d6388;
+}
+
+/* The section that is showing. */
+.menu-item.active {
+	color: #ffffff;
+	background: #1a1e3d;
+}
+
+.menu-item.focused {
+	color: #ffffff;
+	background: #4f5bff;
+	background: linear-gradient(90deg, #4f5bff, #7a4dff);
+	outline: none;
+	box-shadow: none;
+	transform: none;
+}
+
+.menu-item.focused .menu-count {
+	color: #dfe2ff;
+}
+
+.menu-scroll {
+	flex: 1;
+	min-height: 0;
+	overflow: hidden;
+	margin: 10px 0;
+	padding-top: 10px;
+	border-top: 1px solid #171a33;
+	border-bottom: 1px solid #171a33;
+}
+
+.menu-scroll .menu-item {
+	height: 54px;
+	font-size: 21px;
+	padding-left: 18px;
+}
+
+.menu-header {
+	font-size: 15px;
+	font-weight: 600;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+	color: #5d6388;
+	padding: 12px 18px 8px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 /* ==========================================================================
@@ -114,12 +173,7 @@ button {
 	display: block;
 }
 
-#screen-grid {
-	overflow-y: auto;
-	padding-bottom: 48px;
-}
-
-#screen-categories, #screen-category-channels, #screen-settings {
+#screen-settings {
 	overflow-y: auto;
 	padding: 56px 72px;
 }
@@ -130,262 +184,268 @@ button {
 	margin-bottom: 32px;
 }
 
-/* ==========================================================================
-   Hero banner
-   ========================================================================== */
-.hero {
-	position: relative;
-	width: 100%;
-	height: 420px;
-	background: #0a0a0a;
-	overflow: hidden;
-}
-
-.hero-bg {
-	position: absolute;
-	top: 0;
-	right: 0;
-	bottom: 0;
-	left: 0;
-	background-repeat: no-repeat;
-	background-position: center;
-	background-size: cover;
-	opacity: 0.85;
-}
-
-.hero-gradient {
-	position: absolute;
-	top: 0;
-	right: 0;
-	bottom: 0;
-	left: 0;
-	background: linear-gradient(90deg, #000 15%, rgba(0, 0, 0, 0.65) 45%,
-		rgba(0, 0, 0, 0.15) 75%),
-		linear-gradient(0deg, #000 0%, rgba(0, 0, 0, 0) 40%);
-}
-
-.hero-content {
-	position: absolute;
-	left: 72px;
-	bottom: 56px;
-	max-width: 900px;
-}
-
-.hero-badge {
-	display: inline-block;
-	background: #e31c3d;
-	color: #fff;
-	font-size: 16px;
-	font-weight: 600;
-	letter-spacing: 1px;
-	padding: 5px 14px;
-	border-radius: 4px;
-	margin-bottom: 16px;
-}
-
-.hero-title {
-	font-size: 48px;
-	font-weight: 600;
-	margin-bottom: 10px;
-}
-
-.hero-subtitle {
-	font-size: 22px;
-	color: #c7c7c7;
-}
-
-/* ==========================================================================
-   Rows (Favorites, on Home)
-   ========================================================================== */
-.row {
-	padding: 0 72px;
-	margin-top: 36px;
-}
-
-.row-title {
-	font-size: 24px;
-	font-weight: 600;
-	color: #e6e6e6;
-	margin-bottom: 16px;
-}
-
-.tile-row {
-	display: flex;
-	overflow-x: auto;
-	padding-bottom: 8px;
-}
-
-.tile-row>* {
-	margin-right: 24px;
-	flex-shrink: 0;
-}
-
 .empty-hint {
-	font-size: 20px;
-	color: #5a5a5a;
-	padding: 20px 0;
+	font-size: 21px;
+	color: #5d6388;
+	padding: 24px 28px;
 }
 
 /* ==========================================================================
-   Categories screen — two-column alphabetical list (no imagery). Using
-   nth-child(odd) for the inter-column gap rather than gap/grid, which this
-   WebKit doesn't support.
+   Live TV screen: channel list (left), preview and channel info (right).
+   Fixed sizes: 1920 - 300 (menu) = 1620 = 580 (list) + 1040 (right).
+   While the Samsung player is on, the picture is drawn BEHIND the page, so
+   every part here has its own solid background except the preview box.
    ========================================================================== */
-.category-row-item {
-	box-sizing: border-box;
-	flex: 0 0 calc(50% - 12px);
-	margin-bottom: 14px;
+#screen-live.active {
 	display: flex;
-	align-items: center;
-	background: #0d0d0d;
-	border: 1px solid #1c1c1c;
-	border-radius: 10px;
-	padding: 18px 24px;
-	text-align: left;
-	transition: background 0.15s, border-color 0.15s;
 }
 
-.category-row-item:nth-child(odd) {
-	margin-right: 24px;
-}
-
-.category-row-item:hover {
-	background: #131313;
-}
-
-.category-letter {
-	width: 42px;
-	height: 42px;
+.live-channels {
+	width: 580px;
+	height: 100%;
 	flex-shrink: 0;
-	border-radius: 50%;
-	background: #1a1a1a;
-	color: #6c9fff;
-	font-size: 18px;
-	font-weight: 700;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	margin-right: 18px;
-}
-
-.category-label {
-	flex: 1;
-	font-size: 23px;
-	color: #e6e6e6;
-}
-
-.category-count {
-	flex-shrink: 0;
-	font-size: 16px;
-	color: #5a5a5a;
-	margin-left: 12px;
-}
-
-/* ==========================================================================
-   Channel tiles — fixed-width flex-wrap grid (no CSS Grid), used on both
-   the Category Channels screen and the Favorites row.
-   ========================================================================== */
-.channel-grid {
-	display: flex;
-	flex-wrap: wrap;
-}
-
-/* Categories screen is a vertical stack of per-playlist sections (each its
-   own two-column flex-wrap grid) rather than one flat .channel-grid, so
-   categories from different active playlists don't run together. */
-#categoriesGrid {
-	display: block;
-}
-
-.category-section-header {
-	font-size: 20px;
-	font-weight: 600;
-	color: #8a8a8a;
-	text-transform: uppercase;
-	letter-spacing: 0.05em;
-	margin: 28px 0 14px;
-}
-
-.category-section-header:first-child {
-	margin-top: 0;
-}
-
-.category-section-grid {
-	display: flex;
-	flex-wrap: wrap;
-}
-
-.channel-tile {
-	width: 260px;
-	margin-right: 24px;
-	margin-bottom: 28px;
 	display: flex;
 	flex-direction: column;
-	background: transparent;
+	background: #0e1022;
+	border-right: 1px solid #171a33;
 }
 
-.tile-row .channel-tile {
-	width: 260px;
-	margin-bottom: 0;
-}
-
-/* 16:9 box using the padding-bottom trick since aspect-ratio isn't supported */
-.tile-thumb {
-	position: relative;
-	width: 100%;
-	height: 0;
-	padding-bottom: 56.25%;
-	background-color: #111111;
-	background-repeat: no-repeat;
-	background-position: center;
-	background-size: contain;
-	border-radius: 8px;
-	overflow: hidden;
-}
-
-.tile-fallback {
-	position: absolute;
-	top: 0;
-	right: 0;
-	bottom: 0;
-	left: 0;
+.live-head {
 	display: flex;
-	align-items: center;
-	justify-content: center;
-	font-size: 40px;
+	align-items: baseline;
+	padding: 40px 30px 22px;
+	flex-shrink: 0;
+}
+
+.live-title {
+	flex: 1;
+	font-size: 34px;
 	font-weight: 600;
-	color: #4d4d4d;
-}
-
-.live-badge {
-	position: absolute;
-	top: 8px;
-	left: 8px;
-	background: #e31c3d;
-	color: #fff;
-	font-size: 12px;
-	font-weight: 700;
-	letter-spacing: 0.5px;
-	padding: 3px 8px;
-	border-radius: 3px;
-}
-
-.fav-badge {
-	position: absolute;
-	top: 8px;
-	right: 8px;
-	color: #ffd23f;
-	font-size: 20px;
-	text-shadow: 0 0 6px rgba(0, 0, 0, 0.9);
-}
-
-.tile-name {
-	font-size: 18px;
-	padding-top: 10px;
-	color: #d8d8d8;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+}
+
+.live-count {
+	flex-shrink: 0;
+	margin-left: 14px;
+	font-size: 18px;
+	color: #5d6388;
+}
+
+.live-list {
+	flex: 1;
+	min-height: 0;
+	overflow: hidden;
+	padding: 0 14px;
+}
+
+.live-row {
+	display: flex;
+	align-items: center;
+	height: 76px;
+	margin-bottom: 8px;
+	padding: 0 16px;
+	border-radius: 12px;
+	font-size: 24px;
+	color: #b9bedd;
+}
+
+.live-row .live-num {
+	width: 66px;
+	flex-shrink: 0;
+	font-size: 20px;
+	color: #6c75ad;
+}
+
+.live-row .live-logo {
+	width: 64px;
+	height: 44px;
+	flex-shrink: 0;
+	margin-right: 18px;
+	border-radius: 6px;
+	background: #181b36 center / contain no-repeat;
+	text-align: center;
+	line-height: 44px;
+	font-size: 20px;
+	font-weight: 600;
+	color: #5d6388;
+}
+
+.live-row .live-name {
+	flex: 1;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.live-row .live-mark {
+	flex-shrink: 0;
+	margin-left: 10px;
+	font-size: 18px;
+	color: #ffd23f;
+}
+
+.live-row .live-playing {
+	flex-shrink: 0;
+	margin-left: 10px;
+	font-size: 14px;
+	font-weight: 700;
+	letter-spacing: 1px;
+	color: #7f8cff;
+}
+
+/* The channel the list is on, while the remote is in the menu. */
+.live-row.selected {
+	background: #1a1e3d;
+	color: #ffffff;
+}
+
+.live-row.focused {
+	background: #4f5bff;
+	background: linear-gradient(90deg, #4f5bff, #7a4dff);
+	color: #ffffff;
+	outline: none;
+	box-shadow: none;
+	transform: none;
+}
+
+.live-row.focused .live-num,
+.live-row.focused .live-playing {
+	color: #dfe2ff;
+}
+
+.live-right {
+	width: 1040px;
+	height: 100%;
+	flex-shrink: 0;
+	padding: 36px 36px 0;
+}
+
+/* 968 x 544: a 16:9 window. */
+.preview-box {
+	position: relative;
+	width: 968px;
+	height: 544px;
+	border-radius: 14px;
+	background: #000000;
+	overflow: hidden;
+}
+
+.preview-hint {
+	position: absolute;
+	left: 0;
+	right: 0;
+	top: 50%;
+	margin-top: -16px;
+	text-align: center;
+	font-size: 24px;
+	color: #2b2f55;
+}
+
+.live-info {
+	width: 968px;
+	margin-top: 28px;
+	padding: 28px 32px;
+	border-radius: 14px;
+	background: #0e1022;
+}
+
+.live-info-top {
+	display: flex;
+	align-items: center;
+}
+
+.live-info-logo {
+	width: 110px;
+	height: 76px;
+	flex-shrink: 0;
+	margin-right: 26px;
+	border-radius: 10px;
+	background: #181b36 center / contain no-repeat;
+}
+
+.live-info-text {
+	flex: 1;
+	min-width: 0;
+}
+
+.live-info-name {
+	font-size: 40px;
+	font-weight: 600;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.live-info-number {
+	color: #7f8cff;
+	margin-right: 16px;
+}
+
+.live-info-group {
+	margin-top: 6px;
+	font-size: 22px;
+	color: #8a90b8;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.live-info-side {
+	flex-shrink: 0;
+	margin-left: 24px;
+	text-align: right;
+}
+
+.live-clock {
+	font-size: 34px;
+	font-weight: 600;
+	color: #ffffff;
+}
+
+.live-badges {
+	margin-top: 8px;
+	height: 30px;
+}
+
+.badge-live,
+.badge-fav {
+	display: inline-block;
+	margin-left: 10px;
+	padding: 4px 12px;
+	border-radius: 6px;
+	font-size: 16px;
+	font-weight: 700;
+	letter-spacing: 1px;
+}
+
+.badge-live {
+	background: #7a4dff;
+	color: #ffffff;
+}
+
+.badge-fav {
+	background: #2a2540;
+	color: #ffd23f;
+}
+
+.badge-live[hidden],
+.badge-fav[hidden] {
+	display: none;
+}
+
+.live-status {
+	min-height: 28px;
+	margin-top: 22px;
+	font-size: 21px;
+	color: #9fb8e8;
+}
+
+.live-keys {
+	margin-top: 18px;
+	font-size: 19px;
+	color: #5d6388;
 }
 
 .loading-indicator {
@@ -706,9 +766,33 @@ html.avplay-active #screen-player {
 	background: transparent !important;
 }
 
-html.avplay-active #videoPlayer,
-html.avplay-active .icon-rail {
+html.avplay-active #videoPlayer {
 	visibility: hidden;
+}
+
+/* Full screen with the Samsung player: the menu would cover the picture. */
+html.avplay-active.video-full .sidebar {
+	visibility: hidden;
+}
+
+/* The picture as a window on the Live TV screen. js/main.js sets its place
+   and size to those of the preview box; everything but the picture is hidden. */
+#screen-player.preview {
+	display: block;
+	right: auto;
+	bottom: auto;
+	z-index: 5;
+	border-radius: 14px;
+	overflow: hidden;
+}
+
+#screen-player.preview > * {
+	display: none;
+}
+
+#screen-player.preview > video,
+#screen-player.preview > object {
+	display: block;
 }
 
 #avPlayer {

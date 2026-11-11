@@ -30,58 +30,58 @@ window.onerror = function (msg, file, line) {
 		<!-- Shown until the app script has started (it removes this). -->
 		<div id="bootMsg">Starting MyTvApp&hellip;</div>
 
-		<!-- ===================== Left icon rail ===================== -->
-		<nav class="icon-rail">
-			<button class="rail-icon active" id="navHome" tabindex="-1"
-				title="Home">
-				<svg viewBox="0 0 24 24" width="30" height="30">
-					<path fill="currentColor" d="M12 3 2 12h3v8h6v-6h2v6h6v-8h3z" /></svg>
+		<!-- ===================== Side menu ===================== -->
+		<nav class="sidebar" id="sidebar">
+			<div class="brand">MyTvApp</div>
+			<button class="menu-item" id="navLive" tabindex="-1">
+				<svg class="menu-icon" viewBox="0 0 24 24" width="28" height="28">
+					<path fill="currentColor" d="M8.3 2.3 12 6l3.7-3.7 1.4 1.4L14.8 6H20a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5.2L6.9 3.7zM4 8v11h16V8z" /></svg>
+				<span class="menu-label">Live TV</span><span class="menu-count" id="navLiveCount"></span>
 			</button>
-			<button class="rail-icon" id="navCategories" tabindex="-1"
-				title="Categories">
-				<svg viewBox="0 0 24 24" width="28" height="28">
-					<path fill="currentColor"
-						d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" /></svg>
+			<button class="menu-item" id="navFavorites" tabindex="-1">
+				<svg class="menu-icon" viewBox="0 0 24 24" width="28" height="28">
+					<path fill="currentColor" d="M12 21s-7.5-4.6-9.6-9.3C.9 8.300 3 4.500 6.600 4.500c2 0 3.700 1.100 5.400 3 1.700-1.900 3.400-3 5.400-3 3.600 0 5.700 3.800 4.200 7.200C19.500 16.400 12 21 12 21z" /></svg>
+				<span class="menu-label">Favorites</span><span class="menu-count" id="navFavoritesCount"></span>
 			</button>
-			<div class="rail-spacer"></div>
-			<button class="rail-icon" id="navSettings" tabindex="-1"
-				title="Settings">
-				<svg viewBox="0 0 24 24" width="28" height="28">
+			<div class="menu-scroll" id="menuCategories"></div>
+			<button class="menu-item" id="navSettings" tabindex="-1">
+				<svg class="menu-icon" viewBox="0 0 24 24" width="28" height="28">
 					<path fill="currentColor"
-						d="M19.4 13a7.6 7.6 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7.6 7.6 0 0 0-1.7-1L15 3h-4l-.3 2.9a7.6 7.6 0 0 0-1.7 1l-2.4-1-2 3.4L6.6 11a7.6 7.6 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7.6 7.6 0 0 0 1.7 1L11 21h4l.3-2.9a7.6 7.6 0 0 0 1.7-1l2.4 1 2-3.4z M12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" /></svg>
+						d="M19.4 13a7.6 7.6 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7.6 7.6 0 0 0-1.7-1L15 3h-4l-.3 2.9a7.6 7.6 0 0 0-1.7 1l-2.4-1-2 3.4L6.6 11a7.6 7.6 0 0 0 0 2l-2 1.6 2 3.4 2.400-1a7.600 7.600 0 0 0 1.700 1L11 21h4l.3-2.900a7.600 7.600 0 0 0 1.700-1l2.400 1 2-3.400z M12 15.500a3.500 3.500 0 1 1 0-7 3.500 3.500 0 0 1 0 7z" /></svg>
+				<span class="menu-label">Settings</span>
 			</button>
 		</nav>
 
 		<div class="main-area">
 
-			<!-- ===================== Home Screen ===================== -->
-			<section id="screen-grid" class="screen">
-				<div class="hero" id="hero">
-					<div class="hero-bg" id="heroBg"></div>
-					<div class="hero-gradient"></div>
-					<div class="hero-content">
-						<div class="hero-badge">LIVE</div>
-						<h1 class="hero-title" id="heroTitle">&nbsp;</h1>
-						<p class="hero-subtitle" id="heroSubtitle">&nbsp;</p>
+			<!-- ===================== Live TV: channel list, preview, channel info ===================== -->
+			<section id="screen-live" class="screen">
+				<div class="live-channels">
+					<div class="live-head">
+						<h1 class="live-title" id="liveTitle">Live TV</h1>
+						<span class="live-count" id="liveCount"></span>
+					</div>
+					<div class="live-list" id="liveList"></div>
+				</div>
+				<div class="live-right">
+					<!-- The picture is drawn into this box (see placeVideo in js/main.js). -->
+					<div class="preview-box" id="previewBox"><span class="preview-hint" id="previewHint">Preview</span></div>
+					<div class="live-info">
+						<div class="live-info-top">
+							<div class="live-info-logo" id="liveInfoLogo"></div>
+							<div class="live-info-text">
+								<div class="live-info-name"><span class="live-info-number" id="liveInfoNumber"></span><span id="liveInfoName"></span></div>
+								<div class="live-info-group" id="liveInfoGroup"></div>
+							</div>
+							<div class="live-info-side">
+								<div class="live-clock" id="liveClock"></div>
+								<div class="live-badges"><span class="badge-fav" id="liveInfoFav" hidden>&#9733; Favorite</span><span class="badge-live" id="liveInfoLive" hidden>LIVE</span></div>
+							</div>
+						</div>
+						<div class="live-status" id="liveStatus"></div>
+						<div class="live-keys">OK full screen &nbsp;&middot;&nbsp; &#9654; favorite &nbsp;&middot;&nbsp; &#9664; menu &nbsp;&middot;&nbsp; CH+/CH&minus; page</div>
 					</div>
 				</div>
-
-				<section class="row">
-					<h2 class="row-title">Favorites</h2>
-					<div class="tile-row" id="favoritesRow"></div>
-				</section>
-			</section>
-
-			<!-- ===================== Categories browse screen ===================== -->
-			<section id="screen-categories" class="screen">
-				<h1 class="page-title">Categories</h1>
-				<div class="channel-grid" id="categoriesGrid"></div>
-			</section>
-
-			<!-- ===================== Channels within a category ===================== -->
-			<section id="screen-category-channels" class="screen">
-				<h1 class="page-title" id="categoryChannelsTitle">Channels</h1>
-				<div class="channel-grid" id="categoryChannelsGrid"></div>
 			</section>
 
 			<!-- ===================== Settings Screen ===================== -->

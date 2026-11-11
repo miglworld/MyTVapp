@@ -10,7 +10,7 @@ An IPTV player for Samsung Smart TVs (Tizen). It plays live channels from M3U/M3
 
 - **Multiple playlists, several active at once.** Add any number of M3U/M3U8 playlist URLs in Settings and switch each one on or off. Categories from different playlists stay separate, under a header per playlist.
 - **One-press iptv-org presets.** Settings offers **+ Add IPTV-ORG Portugal** and **+ Add IPTV-ORG All Countries**, fetched live from `iptv-org.github.io`. No playlist is bundled in the package.
-- **Categories and channel grids.** Channels are grouped by `group-title` into an alphabetical two-column list, then a channel grid per category.
+- **Live TV screen.** A side menu (Live TV, Favorites, every category of your playlists, Settings), a numbered channel list, and a preview window: resting on a channel plays it in the window, with its name, group and stream status underneath. OK makes it full screen without restarting the stream; Back returns to the list with the channel still playing.
 - **Favorites.** Star a channel while watching it. Favorites are kept when a playlist is switched off (they are only hidden) and removed when the playlist is deleted.
 - **Remote-control navigation.** D-pad, OK and Back everywhere, plus channel up/down, number keys, previous channel and play/pause.
 - **Three players with automatic fallback.** In the installed app, Samsung's own player (**AVPlay**) is tried first: it opens streams itself (no CORS limits) and decodes HLS natively. Then the browser's `<video>` element, then [hls.js](https://github.com/video-dev/hls.js/) (bundled, v1.6.19). If a player fails or shows no video within 12 s, the next one is tried. A status line shows the player in use, the stream's resolution and bitrate, and every player's error if a channel fails.
@@ -19,7 +19,21 @@ An IPTV player for Samsung Smart TVs (Tizen). It plays live channels from M3U/M3
 - **Updates itself.** The installed app checks GitHub after it starts and downloads newer versions; a version that fails to start is discarded (see [How updates work](#how-updates-work)).
 - **System keyboard.** The playlist URL field opens Samsung's keyboard, so you can also type from your phone with the SmartThings app.
 
-## Remote keys while watching
+## Remote keys
+
+**Live TV screen**
+
+| Key | Action |
+|---|---|
+| Up / Down | Move through the menu or the channel list |
+| Right, OK (in the menu) | Go into the channel list |
+| Left, Back (in the list) | Back to the menu |
+| OK (in the list) | Full screen |
+| Right (in the list) | Add or remove the favorite |
+| CH+ / CH- | Page through the list |
+| Back (in the menu) | Exit the app (asks first) |
+
+**Full screen**
 
 | Key | Action |
 |---|---|
@@ -29,9 +43,9 @@ An IPTV player for Samsung Smart TVs (Tizen). It plays live channels from M3U/M3
 | Right, INFO | Info bar with the Favorite button (OK toggles it) |
 | 0-9 | Jump to a channel number (after 2 s, or press OK) |
 | Play/Pause | Pause or resume |
-| Back | Close the panel/info bar, then leave the player (back to the channel grid you came from) |
+| Back | Close the panel/info bar, then back to the Live TV screen |
 
-In the channel list: Up/Down move, CH+/CH- page, OK plays, Back closes. On startup the app reopens the last channel you watched.
+In the channel list over the video: Up/Down move, CH+/CH- page, OK plays, Back closes. On startup the list is on the last channel you watched.
 
 ## Installing
 

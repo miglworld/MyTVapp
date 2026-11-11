@@ -2,6 +2,11 @@
 
 MyTvApp's own history starts at v0.1. Newest first. Each entry also names the version number the app showed at the time.
 
+## v0.11.0 (in testing on the `dev` branch)
+- New Live TV screen in place of the home, categories and channel grid screens: side menu with every category, numbered channel list, preview window with channel details.
+- One playback for preview and full screen: OK makes the preview full screen and Back shrinks it again, without restarting the stream.
+- New colours and focus style.
+
 ## v0.10.1 (2026-11-11)
 Security review.
 - Only real stream addresses (`http`, `https`, `rtmp`, `rtsp`, `rtp`, `udp`, `mms`) become channels; logos must be web addresses; playlists over 40 MB are refused.

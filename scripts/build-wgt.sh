@@ -15,6 +15,6 @@ if [ -z "$pkg" ] || [ "$pkg" != "$cfg" ] || [ "$pkg" != "$app" ]; then
 fi
 
 rm -f MyTvApp.wgt
-zip -q -X MyTvApp.wgt config.xml launcher.html index.html icon.png \
+zip -q -X MyTvApp.wgt config.xml index.html icon.png \
 	css/style.css js/main.js lib/hls.min.js lib/hls.LICENSE
 echo "Built MyTvApp.wgt (version $pkg, unsigned)"

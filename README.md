@@ -14,7 +14,6 @@ An IPTV player for Samsung Smart TVs (Tizen). It plays live channels from M3U/M3
 - **Remote-control navigation.** D-pad, OK and Back everywhere, plus channel up/down, number keys, previous channel and play/pause.
 - **Three players with automatic fallback.** In the installed app, Samsung's own player (**AVPlay**) is tried first: it opens streams itself (no CORS limits) and decodes HLS natively. Then the browser's `<video>` element, then [hls.js](https://github.com/video-dev/hls.js/) (bundled, v1.6.19). If a player fails or shows no video within 12 s, the next one is tried. A status line shows the player in use, the stream's resolution and bitrate, and every player's error if a channel fails.
 - **Picture tuning (optional, off by default).** A switch at the bottom of Settings. On: the Samsung player starts adaptive streams at their highest quality and keeps the stream's own picture shape. Turn it off if the picture stays black.
-- **Updates without reinstalling.** The installed app downloads the current version from GitHub on every start (see [How updates work](#how-updates-work)).
 - **System keyboard.** The playlist URL field opens Samsung's keyboard, so you can also type from your phone with the SmartThings app.
 
 ## Remote keys while watching
@@ -58,12 +57,13 @@ Module files come through the jsDelivr CDN, which caches branch files for up to 
 
 ## How updates work
 
-The package is installed **once**. It opens `launcher.html`, which on every start downloads the current app from GitHub Pages (`https://miglworld.github.io/MyTvApp/`, served from `main`) and builds it inside its own page, so Samsung's AVPlay player keeps working. Merging into `main` is all it takes to update the TV.
+The package starts the app straight from its own files (`index.html`), the same way as the versions that are known to work on the TV. **To update, install the newer package from the latest release** over the old one; playlists and favorites are kept.
 
-- If GitHub cannot be reached within 5 s, or the downloaded app does not start within 10 s, the launcher opens the copy bundled in the package.
-- Settings shows the version and where it was loaded from (GitHub or bundled copy).
+- Settings shows the version and where it was loaded from.
 - The screen says "Starting MyTvApp…" until the app runs. If the app script fails, the error is shown in a red box at the bottom of the screen.
-- A new `.wgt` is only needed when `launcher.html` or `config.xml` changes.
+- The bottom of Settings lists the last events (start, playlists, player, errors). The list survives a restart.
+
+`launcher.html` is an experiment in updating without reinstalling: as the start page, it downloads the current app from GitHub Pages on every start and falls back to the bundled copy. It is **not used by the package at the moment**, because packages that started through it showed a black screen on a real TV. To try it, set `<content src="launcher.html" />` in `config.xml` and add the file to `scripts/build-wgt.sh`.
 
 ## Development
 
@@ -71,13 +71,13 @@ The package is installed **once**. It opens `launcher.html`, which on every star
 
 ```
 config.xml            Tizen widget manifest (app id, privileges, start page)
-launcher.html         Start page of the installed app: loads the app from GitHub Pages
-index.html            The app: all screens as <section> elements
+index.html            The app and the package's start page: all screens as <section> elements
+launcher.html         Experimental self-updating start page (not used by the package)
 css/style.css         All styling
 js/main.js            App logic: focus/navigation, playlists, playback, favorites
 lib/hls.min.js        hls.js 1.6.19, bundled (license: lib/hls.LICENSE)
 icon.png              App icon referenced by config.xml
-package.json          Version (also the launcher's cache key) and TizenBrew module info
+package.json          Version and TizenBrew module info
 scripts/build-wgt.sh  Builds the unsigned MyTvApp.wgt
 .nojekyll             Makes GitHub Pages serve the files as they are
 ```
@@ -86,10 +86,10 @@ There is no build step for the app itself: `index.html` runs as it is, in a desk
 
 ### Releasing a change
 
-1. Bump the version in **three places**, to the same value: `package.json`, `config.xml`, and `APP_VERSION` in `js/main.js`. TVs cache the app files by this version, so a change without a bump may not reach them.
+1. Bump the version in **three places**, to the same value: `package.json`, `config.xml`, and `APP_VERSION` in `js/main.js`.
 2. Add a line to [CHANGELOG.md](CHANGELOG.md).
-3. Merge into `main`. GitHub Pages publishes it and TVs pick it up on the next start.
-4. For a GitHub release, build the package and attach it:
+3. Merge into `main`.
+4. Build the package and attach it to a GitHub release. This is what TVs install:
 
 ```bash
 ./scripts/build-wgt.sh

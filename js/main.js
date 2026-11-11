@@ -1,14 +1,25 @@
-document.addEventListener('DOMContentLoaded', function () {
+// Runs as soon as it is loaded: this script is the last element of <body>, so
+// the whole page already exists. (It used to wait for DOMContentLoaded, which
+// is not guaranteed to fire when the launcher builds the page itself.)
+(function (main) {
+    try { main(); } catch (e) {
+        // A TV has no console to look at: put the error on the screen.
+        var where = ((e && e.stack) || '').split('\n')[1] || '';
+        if (window.MYTVAPP_ERROR) window.MYTVAPP_ERROR(((e && e.message) || String(e)) + ' ' + where.trim());
+        if (window.console) console.error(e);
+    }
+})(function () {
     'use strict';
 
     // ==========================================================================
     // Config / constants
     // ==========================================================================
-    var APP_VERSION = '1.5.1';
+    var APP_VERSION = '1.5.2';
     var PLAYLISTS_KEY = 'iptv_playlists';
     var ACTIVE_PLAYLISTS_KEY = 'iptv_active_playlist_id';
     var FAVORITES_KEY = 'iptv_favorites';
     var LAST_CHANNEL_KEY = 'iptv_last_channel';
+    var PICTURE_TUNING_KEY = 'iptv_picture_tuning';
     var OVERLAY_HIDE_MS = 5000;
     var TOAST_MS = 3000;
     var FETCH_TIMEOUT_MS = 15000;
@@ -68,6 +79,7 @@ document.addEventListener('DOMContentLoaded', function () {
         playFailed: false,
         watchdogId: null,
         avplayOpen: false,
+        returnTo: null,          // screen + focus to go back to when the player closes
         prevChannel: null,       // { ch, context, list } for the "previous channel" key
         lastExited: null,        // channel showing when the player was closed
         panelOpen: false,
@@ -78,6 +90,11 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     var editingPlaylistId = null;
+
+    // Optional Samsung player settings (Settings screen). Off by default: the
+    // plain player is the configuration known to show a picture on every TV.
+    var pictureTuning = false;
+    try { pictureTuning = localStorage.getItem(PICTURE_TUNING_KEY) === '1'; } catch (e) { pictureTuning = false; }
 
     var videoPlayer = document.getElementById('videoPlayer');
 
@@ -189,6 +206,20 @@ document.addEventListener('DOMContentLoaded', function () {
         return rows;
     }
 
+    // Row layout per grid, reused between key presses. Reading offsetTop of
+    // up to 2,000 tiles on every arrow press is slow on a TV; the layout only
+    // changes when the tiles do (re-render or a new batch appended).
+    var layoutCache = {};
+    function cachedRows(key, selector) {
+        var els = document.querySelectorAll(selector);
+        var c = layoutCache[key];
+        if (c && c.count === els.length && c.first === els[0]) return c.rows;
+        var rows = rowsByLayout(els);
+        // A hidden grid has no layout (every offsetTop is 0): do not keep that.
+        if (els.length && els[0].offsetParent !== null) layoutCache[key] = { count: els.length, first: els[0], rows: rows };
+        return rows;
+    }
+
     function leftEdgeToRail(zoneName) {
         Focus.zones[zoneName].onEdge = (function (existing) {
             return function (dir) {
@@ -267,11 +298,20 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById(id).classList.add('active');
     }
 
-    function switchToScreen(id) {
-        showScreen(id);
+    function setNavActive(id) {
         document.getElementById('navHome').classList.toggle('active', id === 'screen-grid');
         document.getElementById('navCategories').classList.toggle('active', id === 'screen-categories' || id === 'screen-category-channels');
         document.getElementById('navSettings').classList.toggle('active', id === 'screen-settings');
+    }
+
+    function activeScreenId() {
+        var el = document.querySelector('.screen.active');
+        return el ? el.id : '';
+    }
+
+    function switchToScreen(id) {
+        showScreen(id);
+        setNavActive(id);
 
         if (id === 'screen-grid') {
             Focus.setZone(visibleFavorites().length ? 'favoritesRow' : 'iconRail', 0, 0);
@@ -325,15 +365,28 @@ document.addEventListener('DOMContentLoaded', function () {
                 var m;
                 attrRegex.lastIndex = 0;
                 while ((m = attrRegex.exec(line)) !== null) attrs[m[1].toLowerCase()] = m[2];
-                var nameMatch = line.match(/,(.*)$/);
+                // The name follows the first comma that is outside quotes
+                // (attribute values such as group-title="News, Sport" have commas too).
+                var comma = -1;
+                var inQuote = false;
+                for (var c = 0; c < line.length; c++) {
+                    var chr = line.charAt(c);
+                    if (chr === '"') inQuote = !inQuote;
+                    else if (chr === ',' && !inQuote) { comma = c; break; }
+                }
+                if (comma === -1) comma = line.lastIndexOf(',');
+                var name = comma === -1 ? '' : line.slice(comma + 1).trim();
                 pending = {
-                    name: nameMatch ? nameMatch[1].trim() : 'Unnamed Channel',
+                    name: name || 'Unnamed Channel',
                     logo: attrs['tvg-logo'] || '',
                     group: attrs['group-title'] || 'Other',
                     tvgId: attrs['tvg-id'] || '',
                     tvgCountry: attrs['tvg-country'] || '',
                     chno: attrs['tvg-chno'] || ''
                 };
+            } else if (line.indexOf('#EXTGRP:') === 0) {
+                // Group given on its own line instead of group-title.
+                if (pending && pending.group === 'Other') pending.group = line.slice(8).trim() || 'Other';
             } else if (line.indexOf('#') !== 0) {
                 if (pending) { pending.url = line; channels.push(pending); pending = null; }
             }
@@ -432,12 +485,15 @@ document.addEventListener('DOMContentLoaded', function () {
     function fetchWithTimeout(url) {
         return new Promise(function (resolve, reject) {
             var settled = false;
+            // Where supported, also cancel the download itself on timeout.
+            var ctrl = window.AbortController ? new AbortController() : null;
             var timer = setTimeout(function () {
                 if (settled) return;
                 settled = true;
+                if (ctrl) { try { ctrl.abort(); } catch (e) { /* ignore */ } }
                 reject(new Error('Timed out'));
             }, FETCH_TIMEOUT_MS);
-            fetch(url).then(function (res) {
+            fetch(url, ctrl ? { signal: ctrl.signal } : undefined).then(function (res) {
                 if (settled) return;
                 settled = true;
                 clearTimeout(timer);
@@ -690,7 +746,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     Focus.zones.categoriesGrid = {
-        getMatrix: function () { return rowsByLayout(Array.prototype.slice.call(document.querySelectorAll('#categoriesGrid .category-row-item'))); }
+        getMatrix: function () { return cachedRows('categories', '#categoriesGrid .category-row-item'); }
     };
     leftEdgeToRail('categoriesGrid');
 
@@ -701,7 +757,7 @@ document.addEventListener('DOMContentLoaded', function () {
         state.activeCategoryIndex = index;
         renderCategoryChannelsScreen();
         showScreen('screen-category-channels');
-        document.getElementById('navCategories').classList.add('active');
+        setNavActive('screen-category-channels');
         Focus.setZone('categoryChannelsGrid', 0, 0);
     }
 
@@ -734,7 +790,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     Focus.zones.categoryChannelsGrid = {
-        getMatrix: function () { return rowsByLayout(Array.prototype.slice.call(document.querySelectorAll('#categoryChannelsGrid .channel-tile'))); },
+        getMatrix: function () { return cachedRows('channels', '#categoryChannelsGrid .channel-tile'); },
         // Load the next batch when focus reaches the last two rendered rows.
         afterApply: function (row, rowCount) {
             if (row >= rowCount - 2) appendChannelBatch();
@@ -862,6 +918,19 @@ document.addEventListener('DOMContentLoaded', function () {
             presetRow.addEventListener('click', function () { addPresetPlaylist(preset); });
             list.appendChild(presetRow);
         });
+
+        var tuningRow = document.createElement('button');
+        tuningRow.className = 'playlist-row add-row option-row';
+        tuningRow.tabIndex = -1;
+        tuningRow.textContent = 'Picture tuning (start at best quality, keep picture shape): ' + (pictureTuning ? 'On' : 'Off');
+        tuningRow.addEventListener('click', function () {
+            pictureTuning = !pictureTuning;
+            try { localStorage.setItem(PICTURE_TUNING_KEY, pictureTuning ? '1' : '0'); } catch (e) { /* non-fatal */ }
+            renderPlaylistList();
+            Focus.setZone('playlistList', Focus.row, 0);
+            showToast(pictureTuning ? 'Picture tuning on. If the picture goes black, turn it off' : 'Picture tuning off');
+        });
+        list.appendChild(tuningRow);
     }
 
     // Which copy is running: loaded from GitHub by the launcher, the bundled
@@ -895,7 +964,7 @@ document.addEventListener('DOMContentLoaded', function () {
             state.activePlaylistIds.push(pl.id);
             saveActivePlaylistIds();
             renderPlaylistList();
-            Focus.setZone('playlistList', 0, 0);
+            Focus.setZone('playlistList', Focus.row, Focus.col);
             loadChannelsForPlaylist(pl).then(function (err) {
                 if (err) showToast('Could not load "' + pl.name + '": ' + err.message);
             });
@@ -903,7 +972,7 @@ document.addEventListener('DOMContentLoaded', function () {
             state.activePlaylistIds.splice(idx, 1);
             saveActivePlaylistIds();
             renderPlaylistList();
-            Focus.setZone('playlistList', 0, 0);
+            Focus.setZone('playlistList', Focus.row, Focus.col);
             removeChannelsForPlaylist(pl.id);
         }
     }
@@ -937,7 +1006,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             removeChannelsForPlaylist(pl.id);
             renderPlaylistList();
-            Focus.setZone('playlistList', 0, 0);
+            Focus.setZone('playlistList', Focus.row, 0);
             showToast('Playlist removed');
         });
     }
@@ -1025,6 +1094,10 @@ document.addEventListener('DOMContentLoaded', function () {
             state.prevChannel = { ch: current, context: state.zapContext, list: state.zapList };
         }
         state.lastExited = null;
+        var from = activeScreenId();
+        if (from !== 'screen-player') {
+            state.returnTo = { screen: from, zone: Focus.currentZone, row: Focus.row, col: Focus.col, categoryIndex: state.activeCategoryIndex };
+        }
         state.nowPlaying = ch;
         state.zapContext = context;
         state.zapList = list || (context === 'favorites' ? visibleFavorites() : (state.categories[state.activeCategoryIndex] || { channels: [] }).channels);
@@ -1097,6 +1170,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function stopEngines() {
         if (state.watchdogId) { clearTimeout(state.watchdogId); state.watchdogId = null; }
+        var hadHls = !!state.hls;
         if (state.hls) { state.hls.destroy(); state.hls = null; }
         if (state.avplayOpen) {
             try { webapis.avplay.stop(); } catch (e) { /* already stopped */ }
@@ -1104,15 +1178,18 @@ document.addEventListener('DOMContentLoaded', function () {
             state.avplayOpen = false;
         }
         document.documentElement.classList.remove('avplay-active');
-        videoPlayer.removeAttribute('src');
-        videoPlayer.load();
+        // Reset the <video> element only if it was in use.
+        if (hadHls || videoPlayer.hasAttribute('src')) {
+            videoPlayer.removeAttribute('src');
+            videoPlayer.load();
+        }
     }
 
     function startPlayback() {
         var ch = state.nowPlaying;
         if (!ch) return;
 
-        stopEngines();
+        // tryNextEngine() below stops whatever was playing.
         state.playToken = (state.playToken || 0) + 1;
         state.isPlaying = false;
 
@@ -1228,11 +1305,11 @@ document.addEventListener('DOMContentLoaded', function () {
             state.avplayOpen = true;
             // setDisplayRect always uses a 1920x1080 base (Samsung AVPlay guide): full screen.
             av.setDisplayRect(0, 0, 1920, 1080);
-            // Keep the stream's own aspect ratio instead of stretching it.
-            try { av.setDisplayMethod('PLAYER_DISPLAY_MODE_AUTO_ASPECT_RATIO'); } catch (e) { /* older firmware */ }
-            // Adaptive (multi-quality) streams: start at the highest quality the
-            // stream offers instead of the TV's default, which can stay low.
-            try { av.setStreamingProperty('ADAPTIVE_INFO', 'STARTBITRATE=HIGHEST'); } catch (e) { /* single-quality stream */ }
+            // Picture tuning (optional): adaptive streams start at the highest
+            // quality the stream offers instead of the TV's default.
+            if (pictureTuning) {
+                try { av.setStreamingProperty('ADAPTIVE_INFO', 'STARTBITRATE=HIGHEST'); } catch (e) { /* single-quality stream */ }
+            }
             av.setListener({
                 onbufferingstart: function () {
                     if (token === state.playToken && state.isPlaying) setPlayerStatus('Buffering\u2026 (Samsung player)');
@@ -1258,6 +1335,12 @@ document.addEventListener('DOMContentLoaded', function () {
             });
             av.prepareAsync(function () {
                 if (token !== state.playToken) return;
+                // Picture tuning (optional): keep the stream's own shape instead
+                // of stretching it. Set once the stream is prepared, as in
+                // Samsung's samples.
+                if (pictureTuning) {
+                    try { av.setDisplayMethod('PLAYER_DISPLAY_MODE_AUTO_ASPECT_RATIO'); } catch (e) { /* older firmware */ }
+                }
                 try { av.play(); } catch (e) { engineFailed(token, label + (e.name || e)); }
             }, function (e) {
                 if (token === state.playToken) engineFailed(token, label + (e && e.name ? e.name : String(e)));
@@ -1340,7 +1423,8 @@ document.addEventListener('DOMContentLoaded', function () {
     // Shared <video> events for both engines.
     videoPlayer.addEventListener('playing', function () {
         if (state.engine === 'avplay') return;
-        markPlaying();
+        // Also clears a "Buffering…" status once the picture is moving again.
+        if (state.isPlaying) setPlayerStatus(playingText()); else markPlaying();
     });
     videoPlayer.addEventListener('error', function () {
         if (!state.nowPlaying || !videoPlayer.getAttribute('src') && !state.hls) return;
@@ -1556,8 +1640,35 @@ document.addEventListener('DOMContentLoaded', function () {
         if (state.digitTimer) { clearTimeout(state.digitTimer); state.digitTimer = null; }
         state.digitBuffer = '';
         document.getElementById('numberEntry').hidden = true;
-        switchToScreen('screen-grid');
+
+        // Go back to where the channel was opened from.
+        var back = state.returnTo;
+        state.returnTo = null;
+        if (back && back.screen === 'screen-category-channels' && state.categories[state.activeCategoryIndex]) {
+            if (back.categoryIndex === state.activeCategoryIndex && document.querySelector('#categoryChannelsGrid .channel-tile')) {
+                showScreen('screen-category-channels');
+                setNavActive('screen-category-channels');
+                Focus.setZone('categoryChannelsGrid', back.row, back.col);
+            } else {
+                openCategoryChannels(state.activeCategoryIndex);
+            }
+        } else {
+            switchToScreen('screen-grid');
+        }
     }
+
+    // The TV takes the video hardware away when the app goes to the background
+    // (Home key, another app). Without this the picture stays black on return.
+    document.addEventListener('visibilitychange', function () {
+        if (!state.nowPlaying || activeScreenId() !== 'screen-player') return;
+        if (document.hidden) {
+            state.playToken = (state.playToken || 0) + 1;
+            stopEngines();
+            state.isPlaying = false;
+        } else {
+            startPlayback();
+        }
+    });
 
     // ==========================================================================
     // Back handling
@@ -1607,6 +1718,11 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
+        // Navigation keys are handled here; stop the browser from also
+        // scrolling the page or "clicking" with them.
+        var kc = event.keyCode;
+        if ((kc >= 37 && kc <= 40) || kc === KEYCODE.ENTER || kc === KEYCODE.BACK) event.preventDefault();
+
         var onPlayer = document.getElementById('screen-player').classList.contains('active');
 
         if (onPlayer) {
@@ -1633,6 +1749,8 @@ document.addEventListener('DOMContentLoaded', function () {
     // Boot
     // ==========================================================================
     window.MYTVAPP_STARTED = true;
+    var bootMsg = document.getElementById('bootMsg');
+    if (bootMsg && bootMsg.parentNode) bootMsg.parentNode.removeChild(bootMsg);
     loadFavorites();
     loadPlaylistsFromStorage();
     Focus.setZone('iconRail', 0, 0);

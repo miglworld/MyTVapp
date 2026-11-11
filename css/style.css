@@ -389,13 +389,32 @@ button {
 }
 
 .loading-indicator {
-	position: absolute;
+	position: fixed;
 	top: 50%;
 	left: 50%;
 	transform: translate(-50%, -50%);
 	text-align: center;
 	font-size: 26px;
 	color: #a8a8a8;
+	background: rgba(8, 8, 8, 0.85);
+	padding: 28px 44px;
+	border-radius: 12px;
+	z-index: 900;
+	pointer-events: none;
+}
+
+.loading-indicator[hidden] {
+	display: none;
+}
+
+/* Visible until js/main.js starts and removes it. */
+#bootMsg {
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	font-size: 28px;
+	color: #8a8a8a;
 }
 
 .spinner {
@@ -497,6 +516,8 @@ button {
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	width: 100%;
+	margin-bottom: 16px;
 }
 
 .playlist-action-btn {
@@ -508,6 +529,11 @@ button {
 	border-radius: 10px;
 	font-size: 18px;
 	color: #d8d8d8;
+}
+
+.playlist-row.option-row {
+	color: #c7c7c7;
+	margin-top: 32px;
 }
 
 .playlist-action-btn.delete {
@@ -889,7 +915,8 @@ html.avplay-active .icon-rail {
 }
 
 .toast {
-	position: absolute;
+	position: fixed;
+	z-index: 1100;
 	bottom: 60px;
 	left: 50%;
 	transform: translateX(-50%) translateY(20px);

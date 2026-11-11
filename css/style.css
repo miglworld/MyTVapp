@@ -648,6 +648,28 @@ button {
 	background: #000000;
 }
 
+/* AVPlay draws video on a hardware plane BEHIND the web page, so everything
+   above it must be transparent while the Samsung player is active. */
+html.avplay-active,
+html.avplay-active body,
+html.avplay-active #app,
+html.avplay-active .main-area,
+html.avplay-active #screen-player {
+	background: transparent !important;
+}
+
+html.avplay-active #videoPlayer {
+	visibility: hidden;
+}
+
+#avPlayer {
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 1920px;
+	height: 1080px;
+}
+
 #videoPlayer {
 	width: 100%;
 	height: 100%;

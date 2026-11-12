@@ -182,6 +182,16 @@ window.onerror = function (msg, file, line) {
 		</div>
 		<div class="toast" id="toast"></div>
 
+		<!-- A downloaded update asks here, in the corner, whether to restart into it. -->
+		<div class="notice" id="updateNotice" hidden>
+			<div class="notice-title">Update available</div>
+			<div class="notice-text" id="updateNoticeText"></div>
+			<div class="notice-actions">
+				<button class="notice-btn" id="updateLaterBtn" tabindex="-1">Later</button>
+				<button class="notice-btn" id="updateNowBtn" tabindex="-1">Update now</button>
+			</div>
+		</div>
+
 		<!-- ===================== Confirm Dialog ===================== -->
 		<div class="modal-overlay" id="confirmModal" hidden>
 			<div class="modal-box">

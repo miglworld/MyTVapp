@@ -21,7 +21,7 @@
     // ==========================================================================
     // Config / constants
     // ==========================================================================
-    var APP_VERSION = '0.11.11';
+    var APP_VERSION = '0.11.12';
     var PLAYLISTS_KEY = 'iptv_playlists';
     var ACTIVE_PLAYLISTS_KEY = 'iptv_active_playlist_id';
     var FAVORITES_KEY = 'iptv_favorites';
@@ -62,7 +62,6 @@
     var UPDATE_URL_KEY = 'mytvapp_update_url';   // testing only: another address to update from
     var AUTO_UPDATE_KEY = 'iptv_auto_update';
     var UPDATE_CHECK_DELAY_MS = 3000;
-    var UPDATE_RESTART_WINDOW_MS = 25000;
 
     // Playlist memory: stored copies are used at the start and downloaded
     // again in the background once they are older than this.
@@ -291,7 +290,7 @@
         setZone: function (name, row, col) {
             // The menu folds into a small capsule while the remote is elsewhere
             // (a dialog leaves it as it was).
-            if (name !== 'confirmActions') {
+            if (name !== 'confirmActions' && name !== 'updateNotice') {
                 document.getElementById('sidebar').classList.toggle('collapsed', name !== 'sideMenu');
             }
             this.currentZone = name;
@@ -398,6 +397,7 @@
         pendingConfirmCallback = null;
         if (confirmReturnZone) Focus.setZone(confirmReturnZone.name, confirmReturnZone.row, confirmReturnZone.col);
         if (Focus.currentZone === 'liveList') renderLiveList();
+        if (Focus.currentZone === 'guideGrid') renderGuide();
     }
 
     Focus.zones.confirmActions = {
@@ -1995,27 +1995,58 @@
             localStorage.removeItem('mytvapp_update_pending');
             updateReady = version;
             logEvent('update ' + version + ' downloaded (' + channel + ')');
-            applyUpdateOrAnnounce(version, manual);
+            applyUpdateOrAnnounce(version);
         }).catch(function (err) {
             logEvent('update check failed (' + channel + '): ' + ((err && err.message) || err));
             if (manual) showToast('Update check failed: ' + ((err && err.message) || err));
         });
     }
 
-    // Right after the start, with nobody in the middle of something, restart
-    // into the update at once. Otherwise it waits for the next start.
-    function applyUpdateOrAnnounce(version, manual) {
-        // Not while watching full screen or typing; a preview does not count.
-        var idle = !state.fullscreen && activeScreenId() !== 'screen-add' &&
-            document.getElementById('confirmModal').hidden;
-        if (idle && (manual || Date.now() - bootTime < UPDATE_RESTART_WINDOW_MS)) {
-            showToast('Updating to ' + version + '\u2026');
-            setTimeout(function () { location.reload(); }, 1500);
-        } else {
-            showToast('Update ' + version + ' is ready: restart the app to use it');
-            if (activeScreenId() === 'screen-settings') renderAppVersion();
+    // An update has been downloaded: a small notice in the top right corner
+    // asks whether to restart into it now. It takes the remote while it is
+    // up (Left/Right between its two buttons, Back means Later). It waits
+    // while a channel is full screen, a URL is being typed or a dialog is
+    // open, and it is shown once: "Later" leaves the update for the next start.
+    var updateAsked = false;
+    var noticeReturnZone = null;
+
+    Focus.zones.updateNotice = {
+        getMatrix: function () {
+            return [[document.getElementById('updateLaterBtn'), document.getElementById('updateNowBtn')]];
         }
+    };
+
+    function applyUpdateOrAnnounce(version) {
+        updateAsked = false;
+        if (activeScreenId() === 'screen-settings') renderAppVersion();
+        if (!askAboutUpdate()) showToast('MyTvApp ' + version + ' is ready to install');
     }
+
+    // Returns true when the notice was put on screen.
+    function askAboutUpdate() {
+        if (!updateReady || updateAsked) return false;
+        if (state.fullscreen || activeScreenId() === 'screen-add' || !document.getElementById('confirmModal').hidden) return false;
+        updateAsked = true;
+        noticeReturnZone = { name: Focus.currentZone, row: Focus.row, col: Focus.col };
+        document.getElementById('updateNoticeText').textContent = 'MyTvApp ' + updateReady + ' is ready to install.';
+        document.getElementById('updateNotice').hidden = false;
+        Focus.setZone('updateNotice', 0, 1);   // on "Update now"
+        return true;
+    }
+
+    function closeUpdateNotice() {
+        document.getElementById('updateNotice').hidden = true;
+        if (noticeReturnZone) Focus.setZone(noticeReturnZone.name, noticeReturnZone.row, noticeReturnZone.col);
+        noticeReturnZone = null;
+        if (Focus.currentZone === 'liveList') renderLiveList();
+        if (Focus.currentZone === 'guideGrid') renderGuide();
+    }
+
+    document.getElementById('updateNowBtn').addEventListener('click', function () { location.reload(); });
+    document.getElementById('updateLaterBtn').addEventListener('click', function () {
+        closeUpdateNotice();
+        showToast('MyTvApp ' + updateReady + ' will be installed the next time the app starts');
+    });
 
     Focus.zones.playlistList = {
         getMatrix: function () {
@@ -2232,6 +2263,7 @@
 
         // Opened from the TV Guide: back to it, on the channel that is playing.
         if (state.fullFrom === 'screen-guide' && state.guideList.length) {
+            setTimeout(askAboutUpdate, 600);
             showScreen('screen-guide');
             var row = state.nowPlaying ? indexByUrl(state.guideList, state.nowPlaying.url) : -1;
             if (row !== -1) state.guideRow = row;
@@ -2241,6 +2273,8 @@
             renderGuide();
             return;
         }
+
+        setTimeout(askAboutUpdate, 600);   // an update that arrived while watching
 
         showScreen('screen-live');
         // Zapped to a channel outside the section that was showing: show them all.
@@ -2902,6 +2936,7 @@
     // ==========================================================================
     function handleBack() {
         if (!document.getElementById('confirmModal').hidden) { hideConfirm(); return; }
+        if (!document.getElementById('updateNotice').hidden) { document.getElementById('updateLaterBtn').click(); return; }
         if (activeScreenId() === 'screen-add') { switchToScreen('screen-settings'); return; }
         if (activeScreenId() === 'screen-settings') { switchToScreen('screen-live'); return; }
         // TV Guide with the remote in the menu: back to Live TV.

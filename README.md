@@ -95,7 +95,7 @@ Install the package once. After that the app updates itself from GitHub.
 - The package always starts from its own files (`index.html`, `js/boot.js`).
 - A few seconds after the start, the app asks GitHub which commit the `main` branch points at and reads the version there. If it is newer, it downloads the app's page, stylesheet and script **from that one commit** and keeps them in the TV's storage. (Files fetched by branch name can be minutes out of step with each other; a commit cannot.)
 - Before storing an update, the app checks that the script is the announced version and that every part of the page it uses is in the downloaded page.
-- If nobody is using the app yet, it restarts into the new version right away. Otherwise the new version runs from the next start.
+- When an update has been downloaded, a small notice in the top right corner offers **Update now** (the app restarts into it) or **Later** (it is installed the next time the app starts). The notice waits while a channel is full screen.
 - **An update that does not start is thrown away** and not downloaded again by itself; the package's own version runs instead. The worst case is one failed start. "Check for updates now" in Settings may try that version once more.
 - Settings shows the version and where it runs from (installed package or downloaded update), and has an **Automatic updates** switch. Off also removes a downloaded update.
 - The bottom of Settings lists the last events (start, playlists, player, updates, errors). The list survives a restart.

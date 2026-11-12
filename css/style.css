@@ -214,6 +214,7 @@ button {
 .sidebar,
 .live-channels,
 .guide-panel,
+.notice,
 .channel-panel,
 .modal-box,
 .toast,
@@ -228,6 +229,7 @@ button {
 html:not(.avplay-active) .sidebar,
 html:not(.avplay-active) .live-channels,
 html:not(.avplay-active) .guide-panel,
+html:not(.avplay-active) .notice,
 html:not(.avplay-active) .channel-panel,
 html:not(.avplay-active) .modal-box,
 html:not(.avplay-active) .toast,
@@ -240,6 +242,7 @@ html:not(.avplay-active) .favorite-btn {
 html.avplay-active .sidebar,
 html.avplay-active .live-channels,
 html.avplay-active .guide-panel,
+html.avplay-active .notice,
 html.avplay-active .channel-panel,
 html.avplay-active .modal-box,
 html.avplay-active .toast,
@@ -1135,6 +1138,67 @@ html.avplay-active .favorite-btn {
 	background: #2c2c2e;
 	border-color: #2c2c2e;
 	color: #f5f5f7;
+}
+
+/* ==========================================================================
+   Notice: a small glass card in the top right corner (a downloaded update
+   asking to be installed). It drops in from just above its place.
+   ========================================================================== */
+.notice {
+	position: fixed;
+	top: 36px;
+	right: 36px;
+	width: 440px;
+	padding: 22px 24px 20px;
+	border-radius: 28px;
+	z-index: 1200;
+	animation: notice-in 0.3s ease-out;
+}
+
+.notice[hidden] {
+	display: none;
+}
+
+/* Position only, and a short way: if the effect ever stalls, the card is
+   still fully visible and on screen. */
+@keyframes notice-in {
+	from { transform: translateY(-20px); }
+	to { transform: translateY(0); }
+}
+
+.notice-title {
+	font-size: 22px;
+	font-weight: 700;
+	color: #ffffff;
+}
+
+.notice-text {
+	margin-top: 4px;
+	font-size: 19px;
+	color: #c7c7cc;
+}
+
+.notice-actions {
+	display: flex;
+	margin-top: 16px;
+}
+
+.notice-btn {
+	flex: 1;
+	height: 50px;
+	border-radius: 25px;
+	font-size: 19px;
+	font-weight: 600;
+	color: #f5f5f7;
+	background: rgba(255, 255, 255, 0.12);
+}
+
+.notice-btn:first-child {
+	margin-right: 12px;
+}
+
+.notice-btn.focused {
+	box-shadow: none;
 }
 
 /* ==========================================================================

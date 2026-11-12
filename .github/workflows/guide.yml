@@ -1,0 +1,39 @@
+name: Guide
+
+# Builds the small programme guide the TV downloads (scripts/build-guide.js)
+# and publishes it as guide.json on the "guide" branch. That branch holds
+# nothing else and is replaced on every run, so it does not grow.
+on:
+  schedule:
+    - cron: '23 */4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: guide
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Build the guide
+        run: node scripts/build-guide.js out/guide.json
+      - name: Publish to the guide branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          cd out
+          git init -q -b guide
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add guide.json
+          git commit -q -m "Guide $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" guide

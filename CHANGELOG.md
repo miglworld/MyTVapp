@@ -10,6 +10,7 @@ MyTvApp's own history starts at v0.1. Newest first. Each entry also names the ve
 - The menu has two levels: Live TV, Favorites and Settings; Live TV opens its own menu (a "‹ Live TV" header, All channels, then the categories) in the same place.
 - The menu folds into a small capsule of icons while the remote is in the channel list or on another screen, and opens again with Left.
 - Lighter glass with a bright rim, larger curves, round menu and list items.
+- When a playlist gives a channel the browser identity (user agent) its server expects, the Samsung player uses it for that channel. Settings switch, on by default. The "referrer" some playlists also give cannot be sent by a TV app.
 - Channels a playlist marks as "[Geo-blocked]" or "[Not 24/7]" are shown darker; a Settings switch can hide them or show them as normal.
 - A channel that did not play is remembered, shown darker with "Did not play last time", until it plays again. Settings can forget them all.
 - TV Guide screen (new menu entry): the channels that have a guide down the left, time across, a line for the present, and the highlighted programme's details at the top. Left/Right move through a channel's programmes, Up/Down change channel, OK on a programme that is on plays the channel, and Back from full screen returns to the guide.

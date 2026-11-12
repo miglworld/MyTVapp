@@ -14,14 +14,14 @@
     // Under Node (scripts/test.js) there is no page: hand out the functions
     // that do not need one and stop here.
     if (typeof document === 'undefined') {
-        if (typeof module !== 'undefined') module.exports = { parseM3U: parseM3U, versionNewer: versionNewer, isStreamUrl: isStreamUrl };
+        if (typeof module !== 'undefined') module.exports = { parseM3U: parseM3U, versionNewer: versionNewer, isStreamUrl: isStreamUrl, cleanUserAgent: cleanUserAgent };
         return;
     }
 
     // ==========================================================================
     // Config / constants
     // ==========================================================================
-    var APP_VERSION = '0.11.10';
+    var APP_VERSION = '0.11.11';
     var PLAYLISTS_KEY = 'iptv_playlists';
     var ACTIVE_PLAYLISTS_KEY = 'iptv_active_playlist_id';
     var FAVORITES_KEY = 'iptv_favorites';
@@ -29,6 +29,7 @@
     var PICTURE_TUNING_KEY = 'iptv_picture_tuning';
     var FAST_START_KEY = 'iptv_fast_start';
     var TAGGED_MODE_KEY = 'iptv_tagged_channels';
+    var SEND_IDENTITY_KEY = 'iptv_send_identity';
     var FAILED_KEY = 'iptv_failed_channels';
     var FAILED_MAX = 300;
     var REOPEN_LAST_KEY = 'iptv_reopen_last';
@@ -175,6 +176,13 @@
     var fastStart = true;
     try { fastStart = localStorage.getItem(FAST_START_KEY) !== '0'; } catch (e) { fastStart = true; }
     var fastStartFailureLogged = false;
+
+    // Some playlists give a channel the browser identity ("user agent") its
+    // server expects from a player. Settings switch, on by default: the
+    // Samsung player announces itself with it for that channel.
+    var sendIdentity = true;
+    try { sendIdentity = localStorage.getItem(SEND_IDENTITY_KEY) !== '0'; } catch (e) { sendIdentity = true; }
+    var identityFailureLogged = false;
 
     // Channels a playlist marks as "[Geo-blocked]" or "[Not 24/7]" often do
     // not play. Settings switch: 'dim' (default) shows them darker, 'hide'
@@ -1202,6 +1210,14 @@
         return /^https?:\/\/\S+$/i.test(url || '') ? url : '';
     }
 
+    // A user agent as a playlist gives it, made safe to hand to the player:
+    // one line of printable characters, not overly long. (A line break in it
+    // could otherwise add request headers of the playlist author's choosing.)
+    function cleanUserAgent(value) {
+        var ua = String(value || '').replace(/[^\x20-\x7e]/g, '').trim();
+        return ua.length > 300 ? '' : ua;
+    }
+
     function parseM3U(text) {
         var lines = text.split(/\r?\n/);
         var channels = [];
@@ -1234,11 +1250,16 @@
                     group: attrs['group-title'] || 'Other',
                     tvgId: attrs['tvg-id'] || '',
                     tvgCountry: attrs['tvg-country'] || '',
-                    chno: attrs['tvg-chno'] || ''
+                    chno: attrs['tvg-chno'] || '',
+                    // Given as an attribute here, or as an #EXTVLCOPT line below.
+                    userAgent: cleanUserAgent(attrs['user-agent'] || attrs['http-user-agent'])
                 };
             } else if (line.indexOf('#EXTGRP:') === 0) {
                 // Group given on its own line instead of group-title.
                 if (pending && pending.group === 'Other') pending.group = line.slice(8).trim() || 'Other';
+            } else if (line.indexOf('#EXTVLCOPT:http-user-agent=') === 0) {
+                // Player option for the entry above: the identity its server expects.
+                if (pending) pending.userAgent = cleanUserAgent(line.slice(27)) || pending.userAgent;
             } else if (line.indexOf('#') !== 0) {
                 // Playlists come from anywhere: only real stream addresses are
                 // accepted, never file:, javascript:, data: or relative paths.
@@ -1607,7 +1628,7 @@
         if (!ch) return;
         var idx = state.favorites.findIndex(function (f) { return f.url === ch.url; });
         if (idx === -1) {
-            state.favorites.push({ name: ch.name, url: ch.url, logo: ch.logo, group: ch.group, tvgId: ch.tvgId, tvgCountry: ch.tvgCountry, playlistId: ch.playlistId, number: ch.number });
+            state.favorites.push({ name: ch.name, url: ch.url, logo: ch.logo, group: ch.group, tvgId: ch.tvgId, userAgent: ch.userAgent, tvgCountry: ch.tvgCountry, playlistId: ch.playlistId, number: ch.number });
             showToast('Added to Favorites');
         } else {
             state.favorites.splice(idx, 1);
@@ -1716,6 +1737,18 @@
             showToast(fastStart ? 'Faster channel start on. If channels stutter, turn it off' : 'Faster channel start off');
         });
         list.appendChild(fastRow);
+
+        var identityRow = document.createElement('button');
+        identityRow.className = 'playlist-row add-row option-row second';
+        identityRow.tabIndex = -1;
+        identityRow.textContent = 'Use the browser identity a playlist gives for a channel: ' + (sendIdentity ? 'On' : 'Off');
+        identityRow.addEventListener('click', function () {
+            sendIdentity = !sendIdentity;
+            try { localStorage.setItem(SEND_IDENTITY_KEY, sendIdentity ? '1' : '0'); } catch (e) { /* non-fatal */ }
+            renderPlaylistList();
+            Focus.setZone('playlistList', Focus.row, 0);
+        });
+        list.appendChild(identityRow);
 
         var reopenRow = document.createElement('button');
         reopenRow.className = 'playlist-row add-row option-row second';
@@ -2506,6 +2539,23 @@
             state.avplayOpen = true;
             // setDisplayRect always uses a 1920x1080 base (Samsung AVPlay guide): full screen.
             av.setDisplayRect(0, 0, 1920, 1080);
+            // The identity the playlist gives for this channel, if any. A favorite
+            // saved before this existed takes it from its channel.
+            var identity = ch.userAgent;
+            if (identity === undefined) {
+                var known = indexByUrl(state.channels, ch.url);
+                identity = ch.userAgent = known === -1 ? '' : (state.channels[known].userAgent || '');
+            }
+            if (sendIdentity && identity) {
+                try {
+                    av.setStreamingProperty('USER_AGENT', identity);
+                } catch (e) {
+                    if (!identityFailureLogged) {
+                        identityFailureLogged = true;
+                        logEvent('playlist identity not accepted by the player: ' + ((e && e.name) || e));
+                    }
+                }
+            }
             // Faster channel start (optional): show the picture after 2 s of
             // buffer, and resume after 3 s when it runs dry.
             if (fastStart) {

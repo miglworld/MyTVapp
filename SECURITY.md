@@ -53,6 +53,7 @@ MyTvApp threats
 - Text from playlists is only ever put on screen as text (`textContent`), never as markup. `scripts/check.sh` fails the build if `eval`, `new Function`, `document.write`, `insertAdjacentHTML` or a non-empty `innerHTML` appears in the app script.
 - Only `http`, `https`, `rtmp(s)`, `rtsp`, `rtp`, `udp` and `mms` addresses become channels. Logos must be `http` or `https`.
 - Playlists over 40 MB are refused.
+- A user agent given by a playlist is handed to the player only as one line of printable characters, at most 300 long, so it cannot add request headers of its own.
 - `scripts/test.js` contains hostile-playlist cases.
 
 **Self-update**

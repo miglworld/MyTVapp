@@ -528,10 +528,12 @@ html.avplay-active .favorite-btn {
 }
 
 /* Darkens the lower part of the picture so the caption stays readable. */
+/* It starts left of this screen's own edge, under the menu, so that the
+   shade reaches the side of the picture whether the menu is folded or open. */
 .live-scrim {
 	position: absolute;
 	z-index: 0;
-	left: 0;
+	left: -420px;
 	right: 0;
 	bottom: 0;
 	height: 600px;

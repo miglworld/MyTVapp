@@ -15,3 +15,7 @@
 .claude/
 .DS_Store
 node_modules/
+
+# Demo page and data that scripts/screenshots/capture.sh builds and removes
+_shot.html
+_shots/

@@ -10,6 +10,7 @@ MyTvApp's own history starts at v0.1. Newest first. Each entry also names the ve
 - The menu has two levels: Live TV, Favorites and Settings; Live TV opens its own menu (a "‹ Live TV" header, All channels, then the categories) in the same place.
 - The menu folds into a small capsule of icons while the remote is in the channel list or on another screen, and opens again with Left.
 - Lighter glass with a bright rim, larger curves, round menu and list items.
+- New menu icons, drawn as one set: outlines of a TV, a star and a gear with the same line weight.
 - Updates are downloaded from one exact commit. Before, the files were fetched by branch name, where GitHub can serve a new script next to an old page for a few minutes; a TV that updated in that window got a version that could not start (this is what happened to 0.11.4). The app also checks that page and script match before storing an update, and "Check for updates now" may retry a version that failed.
 - Review fixes: a channel that did not start at the last launch is not started by itself again; a category stays the same category when playlists change; "previous channel" and the channel to start on are the last ones watched full screen, not ones the list passed over; removing a favorite keeps your place in the list; the diagnostics list no longer fills up with channels passed over.
 - Faster channel start (Settings switch, on by default): the Samsung player shows the picture after 2 seconds of buffer.

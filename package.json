@@ -1,6 +1,6 @@
 {
   "name": "mytvapp",
-  "version": "0.11.6",
+  "version": "0.11.7",
   "description": "IPTV player for Samsung TVs: playlists, favorites, channel list, number zapping",
   "packageType": "app",
   "appName": "MyTvApp",

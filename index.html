@@ -30,25 +30,25 @@ window.onerror = function (msg, file, line) {
 		<!-- Shown until the app script has started (it removes this). -->
 		<div id="bootMsg">Starting MyTvApp&hellip;</div>
 
-		<!-- ===================== Side menu ===================== -->
+		<!-- ===================== Side menu =====================
+		     Icons: one drawn set. Outlines only, 24 px grid, 1.7 px rounded strokes. -->
 		<nav class="sidebar" id="sidebar">
 			<div class="brand"><span class="brand-name">MyTvApp</span><span class="live-clock" id="liveClock"></span></div>
 			<!-- Main menu -->
 			<div class="menu-root">
 			<button class="menu-item" id="navLive" tabindex="-1">
-				<svg class="menu-icon" viewBox="0 0 24 24" width="28" height="28">
-					<path fill="currentColor" d="M8.3 2.3 12 6l3.7-3.7 1.4 1.4L14.8 6H20a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5.2L6.9 3.7zM4 8v11h16V8z" /></svg>
+				<svg class="menu-icon" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+					<path d="M5.5 7.5h13a2.5 2.5 0 0 1 2.5 2.5v7.5a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.500V10a2.5 2.5 0 0 1 2.5-2.5Z M8 3l4 4.5L16 3" /></svg>
 				<span class="menu-label">Live TV</span><span class="menu-count" id="navLiveCount"></span>
 			</button>
 			<button class="menu-item" id="navFavorites" tabindex="-1">
-				<svg class="menu-icon" viewBox="0 0 24 24" width="28" height="28">
-					<path fill="currentColor" d="M12 21s-7.5-4.6-9.6-9.3C.9 8.300 3 4.500 6.600 4.500c2 0 3.700 1.100 5.400 3 1.700-1.900 3.400-3 5.400-3 3.600 0 5.700 3.800 4.200 7.200C19.500 16.400 12 21 12 21z" /></svg>
+				<svg class="menu-icon" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+					<path d="M12 3.4 L14.29 9.44 L20.75 9.76 L15.71 13.81 L17.41 20.04 L12 16.5 L6.59 20.04 L8.29 13.81 L3.25 9.76 L9.71 9.44Z" /></svg>
 				<span class="menu-label">Favorites</span><span class="menu-count" id="navFavoritesCount"></span>
 			</button>
 			<button class="menu-item" id="navSettings" tabindex="-1">
-				<svg class="menu-icon" viewBox="0 0 24 24" width="28" height="28">
-					<path fill="currentColor"
-						d="M19.4 13a7.6 7.6 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7.6 7.6 0 0 0-1.7-1L15 3h-4l-.3 2.9a7.6 7.6 0 0 0-1.7 1l-2.4-1-2 3.4L6.6 11a7.6 7.6 0 0 0 0 2l-2 1.6 2 3.4 2.400-1a7.600 7.600 0 0 0 1.700 1L11 21h4l.3-2.900a7.600 7.600 0 0 0 1.700-1l2.400 1 2-3.400z M12 15.500a3.500 3.500 0 1 1 0-7 3.500 3.500 0 0 1 0 7z" /></svg>
+				<svg class="menu-icon" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+					<path d="M10.37 5.19 L10.61 2.7 L13.39 2.7 L13.63 5.19 L15.66 6.03 L17.59 4.44 L19.56 6.41 L17.97 8.34 L18.81 10.37 L21.3 10.61 L21.3 13.39 L18.81 13.63 L17.97 15.66 L19.56 17.59 L17.59 19.56 L15.66 17.97 L13.63 18.81 L13.39 21.3 L10.61 21.3 L10.37 18.81 L8.34 17.97 L6.41 19.56 L4.44 17.59 L6.03 15.66 L5.19 13.63 L2.7 13.39 L2.7 10.61 L5.19 10.37 L6.03 8.34 L4.44 6.41 L6.41 4.44 L8.34 6.03Z M15.2 12a3.2 3.2 0 1 1-6.4 0 3.2 3.2 0 0 1 6.4 0Z" /></svg>
 				<span class="menu-label">Settings</span>
 			</button>
 			</div>
@@ -56,8 +56,8 @@ window.onerror = function (msg, file, line) {
 			<div class="menu-sub">
 				<button class="menu-item menu-back" id="navBack" tabindex="-1">
 					<span class="menu-back-arrow">&#8249;</span>
-					<svg class="menu-icon" viewBox="0 0 24 24" width="28" height="28">
-					<path fill="currentColor" d="M8.3 2.3 12 6l3.7-3.7 1.4 1.4L14.8 6H20a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5.2L6.9 3.7zM4 8v11h16V8z" /></svg>
+					<svg class="menu-icon" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+					<path d="M5.5 7.5h13a2.5 2.5 0 0 1 2.5 2.5v7.5a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.500V10a2.5 2.5 0 0 1 2.5-2.5Z M8 3l4 4.5L16 3" /></svg>
 					<span class="menu-label">Live TV</span>
 				</button>
 				<button class="menu-item" id="navAll" tabindex="-1">

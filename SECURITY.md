@@ -11,7 +11,7 @@ Open an issue on this repository. If it should not be public, use GitHub's "Repo
 | Source | Trusted? | Why it matters |
 |---|---|---|
 | The installed package (`index.html`, `js/boot.js`, `js/main.js`, `lib/hls.min.js`) | Yes | It is what you installed and signed. |
-| This repository's `main` branch (through GitHub Pages) | Yes | The app downloads newer versions of itself from it and runs them. |
+| This repository's `main` branch | Yes | The app downloads newer versions of itself from it and runs them. |
 | This repository's `dev` branch | Only with Developer mode on | Same as above, for test versions. |
 | Playlists (any URL you add) | **No** | Names, groups, logos and stream addresses are written by someone else. |
 | Stream and logo servers | **No** | They see the TV's IP address and can send anything back. |
@@ -55,7 +55,8 @@ MyTvApp threats
 - `scripts/test.js` contains hostile-playlist cases.
 
 **Self-update**
-- Updates come over HTTPS from exactly two addresses, both in this repository: GitHub Pages for `main`, and the raw `dev` branch for Developer mode. `scripts/check.sh` fails if any other address appears. The address override used for testing only works on `localhost`.
+- Updates come over HTTPS from exactly two addresses, both for this repository: GitHub's commit lookup (which commit `main`, or `dev` in Developer mode, points at) and the files of that commit. `scripts/check.sh` fails if any other address appears. The address override used for testing only works on `localhost`.
+- All files of an update come from one commit, and the app checks that the script is the announced version and that the page has everything the script uses before it stores them.
 - The start-up script (`js/boot.js`) is part of the package and cannot be replaced by an update. It contains no network address.
 - An update that does not start is discarded and never downloaded again.
 - Every pull request is checked (scripts parse, versions match, security rules, tests) and scanned by CodeQL before it can reach `main`.
@@ -72,10 +73,12 @@ sequenceDiagram
     else no update, or it failed to start
         Boot->>TV: run the package's own version
     end
-    TV->>GH: HTTPS: package.json (version)
+    TV->>GH: HTTPS: which commit is the branch at?
+    GH-->>TV: commit
+    TV->>GH: HTTPS: package.json of that commit
     GH-->>TV: version
     opt a newer version
-        TV->>GH: HTTPS: index.html, css/style.css, js/main.js
+        TV->>GH: HTTPS: index.html, css/style.css, js/main.js of that commit
         GH-->>TV: files
         TV->>TV: check the files belong to that version, store them
         TV->>Boot: restart (now or at the next start)
@@ -101,7 +104,7 @@ sequenceDiagram
 
 ## If a bad version reaches TVs
 
-1. **Stop it spreading.** Revert the change on `main` and raise the version number in all four places (a version that is not higher is ignored by TVs). Merge it. GitHub Pages publishes within a couple of minutes.
+1. **Stop it spreading.** Revert the change on `main` and raise the version number in all four places (a version that is not higher is ignored by TVs). Merge it. TVs see it at their next start.
 2. **TVs recover on their next start.** A version that did not start has already been discarded on its own. A version that starts but misbehaves is replaced by the fixed one.
 3. **A TV that cannot reach Settings** (for example a bad version that hangs after starting): uninstall and reinstall the package from the latest release. This clears saved playlists and favorites.
 4. **A TV that can reach Settings:** turning "Automatic updates" off returns it to the package's own version at the next start.

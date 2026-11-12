@@ -80,9 +80,10 @@ Module files come through the jsDelivr CDN, which caches branch files for up to 
 Install the package once. After that the app updates itself from GitHub.
 
 - The package always starts from its own files (`index.html`, `js/boot.js`).
-- A few seconds after the start, the app checks GitHub Pages (`https://miglworld.github.io/MyTvApp/`, served from `main`) for a newer version. If there is one, it downloads the app's page, stylesheet and script and keeps them in the TV's storage.
+- A few seconds after the start, the app asks GitHub which commit the `main` branch points at and reads the version there. If it is newer, it downloads the app's page, stylesheet and script **from that one commit** and keeps them in the TV's storage. (Files fetched by branch name can be minutes out of step with each other; a commit cannot.)
+- Before storing an update, the app checks that the script is the announced version and that every part of the page it uses is in the downloaded page.
 - If nobody is using the app yet, it restarts into the new version right away. Otherwise the new version runs from the next start.
-- **An update that does not start is thrown away** and never tried again; the package's own version runs instead. The worst case is one failed start.
+- **An update that does not start is thrown away** and not downloaded again by itself; the package's own version runs instead. The worst case is one failed start. "Check for updates now" in Settings may try that version once more.
 - Settings shows the version and where it runs from (installed package or downloaded update), and has an **Automatic updates** switch. Off also removes a downloaded update.
 - The bottom of Settings lists the last events (start, playlists, player, updates, errors). The list survives a restart.
 - The screen says "Starting MyTvApp…" until the app runs. If the app script fails, the error is shown in a red box at the bottom of the screen.
@@ -92,7 +93,6 @@ Install the package once. After that the app updates itself from GitHub.
 **Developer mode** (a switch in Settings, off by default) makes the TV follow the repo's `dev` branch instead of `main`, so a test version can be tried on the TV before it is merged.
 
 - With it on, the TV takes whatever version the `dev` branch holds, as long as it differs from the one running and is newer than the installed package. "Check for updates now" fetches it without restarting the app by hand.
-- GitHub serves branch files with a delay of up to about five minutes after a push.
 - A test version that does not start is discarded like any other update.
 - Turning it off forgets the test version: the next start runs the installed package's version, which then updates to the released one.
 
@@ -134,7 +134,7 @@ They verify that the scripts parse, that the version is the same in all four pla
 1. Bump the version in **four places**, to the same value: `package.json`, `config.xml`, `APP_VERSION` in `js/main.js`, and `BUNDLED_VERSION` in `js/boot.js`.
 2. Add a line to [CHANGELOG.md](CHANGELOG.md).
 3. Optional: try it on the TV first. Push the work to the `dev` branch (`git push origin HEAD:dev --force-with-lease`), and on a TV with Developer mode on choose "Check for updates now".
-4. Open a pull request, wait for the check, and merge into `main`. GitHub Pages publishes it and installed TVs update themselves on the next start. Afterwards bring `dev` level with `main` again.
+4. Open a pull request, wait for the check, and merge into `main`. Installed TVs update themselves on the next start. Afterwards bring `dev` level with `main` again.
 5. For a new package (first installs, or a change to `config.xml`, `js/boot.js` or `lib/hls.min.js`), build it and attach it to a GitHub release:
 
 ```bash

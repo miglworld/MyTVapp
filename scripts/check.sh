@@ -37,13 +37,16 @@ fi
 # innerHTML may only be emptied, except the one place that installs an update's markup.
 if grep -n 'innerHTML *=' js/main.js | grep -v "innerHTML = ''"; then fail "js/main.js may only set innerHTML to ''"; fi
 [ "$(grep -c 'innerHTML *=' js/boot.js)" = "1" ] || fail "js/boot.js must set innerHTML exactly once (the update's markup)"
-# Updates come from these two addresses and nowhere else.
+# Updates come from this repository on GitHub and nowhere else: the commit
+# lookup, and the files of that commit.
 [ "$(grep -oE "https?://[^'\" ]+" js/boot.js | wc -l | tr -d ' ')" = "0" ] || fail "js/boot.js must not contain any address"
-for u in $(grep -oE "var UPDATE(_DEV)?_URL = '[^']+'" js/main.js | sed "s/.*= '//; s/'//"); do
-	case "$u" in
-		https://miglworld.github.io/MyTvApp/|https://raw.githubusercontent.com/miglworld/MyTvApp/dev/) ;;
-		*) fail "unexpected update address: $u" ;;
-	esac
+grep -q "var UPDATE_API = 'https://api.github.com/repos/miglworld/MyTvApp/commits/';" js/main.js || fail "unexpected update lookup address"
+grep -q "var UPDATE_RAW = 'https://raw.githubusercontent.com/miglworld/MyTvApp/';" js/main.js || fail "unexpected update file address"
+[ "$(grep -cE "var UPDATE_[A-Z_]+ = 'https?://" js/main.js)" = "2" ] || fail "js/main.js must have exactly the two update addresses"
+# Every element the script reaches for by id is in the page (an update whose
+# page and script do not match cannot start).
+for id in $(grep -oE "getElementById\('[A-Za-z0-9_-]+'\)" js/main.js | sed "s/.*('//; s/')//" | sort -u); do
+	grep -q "id=\"$id\"" index.html || fail "js/main.js uses #$id, which index.html does not have"
 done
 grep -q "location.hostname === 'localhost'" js/main.js || fail "the update address override must stay limited to localhost"
 # The bundled video library is the official hls.js 1.6.19 build.

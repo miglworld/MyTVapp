@@ -21,7 +21,7 @@
     // ==========================================================================
     // Config / constants
     // ==========================================================================
-    var APP_VERSION = '0.11.5';
+    var APP_VERSION = '0.11.6';
     var PLAYLISTS_KEY = 'iptv_playlists';
     var ACTIVE_PLAYLISTS_KEY = 'iptv_active_playlist_id';
     var FAVORITES_KEY = 'iptv_favorites';
@@ -35,11 +35,15 @@
     // Self-update: where the current app is published (GitHub Pages, served
     // from the repo's main branch) and where a downloaded copy is kept. The
     // keys are shared with js/boot.js, which starts a downloaded copy.
-    var UPDATE_URL = 'https://miglworld.github.io/MyTvApp/';
-    // Developer mode follows the repo's dev branch instead: test versions
-    // that are not merged into main yet (raw files, cached by GitHub for
-    // about five minutes).
-    var UPDATE_DEV_URL = 'https://raw.githubusercontent.com/miglworld/MyTvApp/dev/';
+    // An update is one exact commit of the repository: the app first asks
+    // GitHub which commit a branch points at, then downloads every file from
+    // that commit. (Fetching the files by branch name does not work: GitHub
+    // caches each file of a branch separately for some minutes, so right
+    // after a push a TV can be handed the new script with the old page.)
+    // Normally the branch is main; Developer mode follows dev instead, for
+    // test versions that are not merged yet.
+    var UPDATE_API = 'https://api.github.com/repos/miglworld/MyTvApp/commits/';
+    var UPDATE_RAW = 'https://raw.githubusercontent.com/miglworld/MyTvApp/';
     var DEVELOPER_MODE_KEY = 'iptv_developer_mode';
     var UPDATE_KEY = 'mytvapp_update';
     var UPDATE_BAD_KEY = 'mytvapp_update_bad';
@@ -919,7 +923,8 @@
     // A hung fetch (no route to the host, rather than a fast connection
     // refusal) would otherwise never resolve or reject, leaving the loading
     // indicator stuck on screen forever with nothing left to clear it.
-    function fetchWithTimeout(url) {
+    // options: extra fetch settings (headers), optional.
+    function fetchWithTimeout(url, options) {
         return new Promise(function (resolve, reject) {
             var settled = false;
             // Where supported, also cancel the download itself on timeout.
@@ -930,7 +935,9 @@
                 if (ctrl) { try { ctrl.abort(); } catch (e) { /* ignore */ } }
                 reject(new Error('Timed out'));
             }, FETCH_TIMEOUT_MS);
-            fetch(url, ctrl ? { signal: ctrl.signal } : undefined).then(function (res) {
+            var settings = options || {};
+            if (ctrl) settings.signal = ctrl.signal;
+            fetch(url, settings).then(function (res) {
                 if (settled) return;
                 settled = true;
                 clearTimeout(timer);
@@ -1429,8 +1436,8 @@
         return !!window.MYTVAPP_BUNDLED && (location.protocol.indexOf('http') !== 0 || location.hostname === 'localhost');
     }
 
-    function fetchUpdateText(url) {
-        return fetchWithTimeout(url).then(function (res) {
+    function fetchUpdateText(url, options) {
+        return fetchWithTimeout(url, options).then(function (res) {
             if (!res.ok) throw new Error('HTTP ' + res.status);
             return res.text();
         });
@@ -1439,16 +1446,28 @@
     // manual: started from Settings, so it reports back and may restart at once.
     function checkForUpdate(manual) {
         if (!updatesPossible() || (!autoUpdate && !manual)) return;
-        var base = developerMode ? UPDATE_DEV_URL : UPDATE_URL;
-        // The test override only works on a developer's own machine. On a TV
-        // the app can only ever update from the two GitHub addresses above.
-        if (location.hostname === 'localhost') {
-            try { base = localStorage.getItem(UPDATE_URL_KEY) || base; } catch (e) { /* keep base */ }
-        }
+        var branch = developerMode ? 'dev' : 'main';
         var channel = developerMode ? 'dev branch' : 'main';
         var version = '';
+        var base = '';
 
-        fetchUpdateText(base + 'package.json?t=' + Date.now()).then(function (text) {
+        // The test override only works on a developer's own machine. On a TV
+        // the app can only ever update from the two GitHub addresses above.
+        var override = null;
+        if (location.hostname === 'localhost') {
+            try { override = localStorage.getItem(UPDATE_URL_KEY); } catch (e) { override = null; }
+        }
+        var findBase = override ? Promise.resolve(override)
+            : fetchUpdateText(UPDATE_API + branch, { headers: { Accept: 'application/vnd.github.sha' } }).then(function (sha) {
+                sha = String(sha).trim();
+                if (!/^[0-9a-f]{40}$/.test(sha)) throw new Error('unexpected answer for the ' + branch + ' commit');
+                return UPDATE_RAW + sha + '/';
+            });
+
+        findBase.then(function (found) {
+            base = found;
+            return fetchUpdateText(base + 'package.json');
+        }).then(function (text) {
             version = String(JSON.parse(text).version || '');
             var wanted = developerMode ? (version !== '' && version !== APP_VERSION) : versionNewer(version, APP_VERSION);
             // js/boot.js only starts a download that is newer than the
@@ -1465,16 +1484,16 @@
             }
             var bad = null;
             try { bad = localStorage.getItem(UPDATE_BAD_KEY); } catch (e) { bad = null; }
-            if (bad === version) {
+            // A version that failed to start is not fetched again by itself.
+            // "Check for updates now" may try it once more.
+            if (bad === version && !manual) {
                 logEvent('update ' + version + ' skipped: it failed to start before');
-                if (manual) showToast('Version ' + version + ' failed to start before and is skipped');
                 return null;
             }
-            var v = '?v=' + encodeURIComponent(version);
             return Promise.all([
-                fetchUpdateText(base + 'index.html' + v),
-                fetchUpdateText(base + 'css/style.css' + v),
-                fetchUpdateText(base + 'js/main.js' + v)
+                fetchUpdateText(base + 'index.html'),
+                fetchUpdateText(base + 'css/style.css'),
+                fetchUpdateText(base + 'js/main.js')
             ]);
         }).then(function (files) {
             if (!files) return;
@@ -1486,7 +1505,14 @@
             var doc = new DOMParser().parseFromString(files[0], 'text/html');
             var app = doc && doc.getElementById('app');
             if (!app) throw new Error('page has no app markup');
+            // Every part of the page the script reaches for must be in the page.
+            var ids = js.match(/getElementById\('[A-Za-z0-9_-]+'\)/g) || [];
+            for (var i = 0; i < ids.length; i++) {
+                var id = ids[i].slice(16, -2);
+                if (!doc.getElementById(id)) throw new Error('page and script do not match (' + id + ')');
+            }
             localStorage.setItem(UPDATE_KEY, JSON.stringify({ version: version, js: js, css: files[1], html: app.innerHTML }));
+            localStorage.removeItem(UPDATE_BAD_KEY);
             // This app is clearly running: a start-up check still open from this
             // start (js/boot.js) must not be held against the new download.
             localStorage.removeItem('mytvapp_update_pending');

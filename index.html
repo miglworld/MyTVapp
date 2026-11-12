@@ -85,6 +85,13 @@ window.onerror = function (msg, file, line) {
 					<div class="live-badges"><span class="badge-live" id="liveInfoLive" hidden>LIVE</span><span class="badge-fav" id="liveInfoFav" hidden>&#9733; Favorite</span></div>
 					<div class="live-info-name"><span class="live-info-number" id="liveInfoNumber"></span><span id="liveInfoName"></span></div>
 					<div class="live-info-group" id="liveInfoGroup"></div>
+					<!-- What is on, from the programme guide (hidden when it has nothing). -->
+					<div class="live-prog" id="liveProg" hidden>
+						<div class="live-prog-now"><span class="live-prog-title" id="liveProgTitle"></span><span class="live-prog-time" id="liveProgTime"></span></div>
+						<div class="live-prog-bar" id="liveProgBar"><div class="live-prog-fill" id="liveProgFill"></div></div>
+						<div class="live-prog-desc" id="liveProgDesc"></div>
+						<div class="live-prog-next" id="liveProgNext"></div>
+					</div>
 					<div class="live-status" id="liveStatus"></div>
 					<div class="live-keys">OK full screen &nbsp;&middot;&nbsp; &#9654; favorite &nbsp;&middot;&nbsp; &#9664; menu</div>
 				</div>

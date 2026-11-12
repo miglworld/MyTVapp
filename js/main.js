@@ -21,7 +21,7 @@
     // ==========================================================================
     // Config / constants
     // ==========================================================================
-    var APP_VERSION = '0.11.7';
+    var APP_VERSION = '0.11.8';
     var PLAYLISTS_KEY = 'iptv_playlists';
     var ACTIVE_PLAYLISTS_KEY = 'iptv_active_playlist_id';
     var FAVORITES_KEY = 'iptv_favorites';
@@ -45,6 +45,14 @@
     var UPDATE_API = 'https://api.github.com/repos/miglworld/MyTvApp/commits/';
     var UPDATE_RAW = 'https://raw.githubusercontent.com/miglworld/MyTvApp/';
     var DEVELOPER_MODE_KEY = 'iptv_developer_mode';
+
+    // Programme guide: a small file this repository builds every few hours
+    // (scripts/build-guide.js) from a full guide feed, holding only the
+    // playlists' channels and the next two days. Kept on the TV like a
+    // playlist and fetched again when older than GUIDE_MAX_AGE_MS.
+    var GUIDE_URL = 'https://raw.githubusercontent.com/miglworld/MyTvApp/guide/guide.json';
+    var GUIDE_MAX_AGE_MS = 3 * 60 * 60 * 1000;
+    var GUIDE_MAX_CHARS = 5 * 1000 * 1000;
     var UPDATE_KEY = 'mytvapp_update';
     var UPDATE_BAD_KEY = 'mytvapp_update_bad';
     var UPDATE_URL_KEY = 'mytvapp_update_url';   // testing only: another address to update from
@@ -112,6 +120,7 @@
         statusText: '',          // last player status line
         previewTimer: null,
         menuTimer: null,
+        guide: null,             // { channelKey: [[start minute, length minutes, title, description?], ...] }
         watched: false,          // the channel that is playing has been shown full screen
         menuMode: 'root',        // side menu shows: 'root' (Live TV, Favorites, Settings) or 'live' (Live TV's own menu)
         favorites: [],
@@ -597,6 +606,76 @@
     };
 
     // ==========================================================================
+    // Programme guide: what is on now and next.
+    // ==========================================================================
+    var GUIDE_ENTRY = { id: '__guide', url: GUIDE_URL };   // its place in the playlist store
+
+    // "RTP1.pt@SD" -> "rtp1.pt", the name the guide file uses.
+    function guideKey(ch) {
+        if (ch.tvgId === undefined) {
+            // A favorite saved before the guide existed: take the id from its channel.
+            var i = indexByUrl(state.channels, ch.url);
+            ch.tvgId = i === -1 ? '' : (state.channels[i].tvgId || '');
+        }
+        return String(ch.tvgId || '').split('@')[0].toLowerCase();
+    }
+
+    // { now, next }: programme entries, either may be null. null when the
+    // guide has nothing for the channel at this moment.
+    function nowNext(ch) {
+        var list = state.guide && ch ? state.guide[guideKey(ch)] : null;
+        if (!list || !list.length) return null;
+        var minute = Date.now() / 60000;
+        for (var i = 0; i < list.length; i++) {
+            var start = list[i][0];
+            if (start > minute) return { now: null, next: list[i] };
+            if (minute < start + list[i][1]) return { now: list[i], next: list[i + 1] || null };
+        }
+        return null;
+    }
+
+    // Minutes since 1970 -> "14:25" in the TV's own time zone.
+    function guideTime(minute) {
+        var d = new Date(minute * 60000);
+        var m = d.getMinutes();
+        return d.getHours() + ':' + (m < 10 ? '0' : '') + m;
+    }
+
+    function useGuide(text) {
+        var data = JSON.parse(text);
+        if (!data || typeof data.channels !== 'object' || !data.channels) throw new Error('not a guide file');
+        state.guide = data.channels;
+        return Object.keys(state.guide).length;
+    }
+
+    // Start of the app: the stored guide at once, a fresh one when it is old.
+    function loadGuide() {
+        cacheGet(GUIDE_ENTRY).then(function (hit) {
+            var fresh = false;
+            if (hit) {
+                try {
+                    useGuide(hit.text);
+                    fresh = Date.now() - hit.time < GUIDE_MAX_AGE_MS;
+                    renderLiveList();
+                } catch (e) { /* unusable copy: download */ }
+            }
+            if (fresh) return;
+            return fetchWithTimeout(GUIDE_URL).then(function (res) {
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                return res.text();
+            }).then(function (text) {
+                if (text.length > GUIDE_MAX_CHARS) throw new Error('guide is too large');
+                var n = useGuide(text);
+                cachePut(GUIDE_ENTRY, text);
+                logEvent('guide: ' + n + ' channels');
+                if (!state.fullscreen) renderLiveList();
+            });
+        }).catch(function (err) {
+            logEvent('guide not loaded: ' + ((err && err.message) || err));
+        });
+    }
+
+    // ==========================================================================
     // Live TV screen: the channel list of the section chosen in the menu, a
     // preview window and the channel's details. Only the rows that fit are
     // built, so a list of 10,000 channels costs the same as one of 10.
@@ -630,12 +709,22 @@
         logo.className = 'live-logo';
         if (ch.logo) logo.style.backgroundImage = 'url(' + JSON.stringify(ch.logo) + ')';
         else logo.textContent = (ch.name || '?').charAt(0).toUpperCase();
+        var text = document.createElement('span');
+        text.className = 'live-text';
         var name = document.createElement('span');
         name.className = 'live-name';
         name.textContent = ch.name;
+        text.appendChild(name);
+        var on = nowNext(ch);
+        if (on && on.now) {
+            var sub = document.createElement('span');
+            sub.className = 'live-sub';
+            sub.textContent = String(on.now[2]);
+            text.appendChild(sub);
+        }
         row.appendChild(num);
         row.appendChild(logo);
-        row.appendChild(name);
+        row.appendChild(text);
         if (state.nowPlaying && ch.url === state.nowPlaying.url) {
             var playing = document.createElement('span');
             playing.className = 'live-playing';
@@ -701,15 +790,37 @@
         if (ch && ch.group) parts.push(ch.group);
         if (ch && ch.playlistName) parts.push(ch.playlistName);
         document.getElementById('liveInfoGroup').textContent = parts.join(' · ');
+        showProgramme(ch);
         document.getElementById('liveInfoFav').hidden = !(ch && isFavorited(ch));
         document.getElementById('liveInfoLive').hidden = !(isCurrent && state.isPlaying);
         document.getElementById('liveStatus').textContent = isCurrent ? state.statusText : '';
+    }
+
+    // The programme part of the caption: title, times, how far along it is,
+    // a short description and what follows. Hidden when the guide has nothing.
+    function showProgramme(ch) {
+        var on = nowNext(ch);
+        var box = document.getElementById('liveProg');
+        box.hidden = !on;
+        if (!on) return;
+        var now = on.now;
+        document.getElementById('liveProgTitle').textContent = now ? String(now[2]) : '';
+        document.getElementById('liveProgTime').textContent = now ? guideTime(now[0]) + ' \u2013 ' + guideTime(now[0] + now[1]) : '';
+        document.getElementById('liveProgBar').hidden = !now;
+        if (now) {
+            var done = (Date.now() / 60000 - now[0]) / now[1];
+            document.getElementById('liveProgFill').style.width = Math.max(0, Math.min(100, Math.round(done * 100))) + '%';
+        }
+        document.getElementById('liveProgDesc').textContent = now && now[3] ? String(now[3]) : '';
+        document.getElementById('liveProgNext').textContent = on.next ? 'Next \u00b7 ' + guideTime(on.next[0]) + ' \u00b7 ' + String(on.next[2]) : '';
     }
 
     function updateClock() {
         var d = new Date();
         var m = d.getMinutes();
         document.getElementById('liveClock').textContent = d.getHours() + ':' + (m < 10 ? '0' : '') + m;
+        // Programmes move on with the clock.
+        if (state.guide && !state.fullscreen && activeScreenId() === 'screen-live') updateLiveInfo();
     }
     updateClock();
     setInterval(updateClock, 20000);
@@ -1193,7 +1304,7 @@
         if (!ch) return;
         var idx = state.favorites.findIndex(function (f) { return f.url === ch.url; });
         if (idx === -1) {
-            state.favorites.push({ name: ch.name, url: ch.url, logo: ch.logo, group: ch.group, tvgCountry: ch.tvgCountry, playlistId: ch.playlistId, number: ch.number });
+            state.favorites.push({ name: ch.name, url: ch.url, logo: ch.logo, group: ch.group, tvgId: ch.tvgId, tvgCountry: ch.tvgCountry, playlistId: ch.playlistId, number: ch.number });
             showToast('Added to Favorites');
         } else {
             state.favorites.splice(idx, 1);
@@ -1911,7 +2022,7 @@
 
         document.getElementById('nowPlayingName').textContent = ch.name;
         document.getElementById('nowPlayingNumber').textContent = ch.number ? String(ch.number) : '';
-        document.getElementById('nowPlayingGroup').textContent = ch.group || '';
+        showOverlayProgramme();
         var logoEl = document.getElementById('nowPlayingLogo');
         logoEl.style.backgroundImage = ch.logo ? ('url(' + JSON.stringify(ch.logo) + ')') : '';
         updateFavoriteButton();
@@ -2211,8 +2322,23 @@
         getMatrix: function () { return [[document.getElementById('favoriteBtn')]]; }
     };
 
+    // Second line of the full-screen caption: the programme that is on, or
+    // the channel's group when the guide has nothing.
+    function showOverlayProgramme() {
+        var ch = state.nowPlaying;
+        if (!ch) return;
+        var on = nowNext(ch);
+        var text = ch.group || '';
+        if (on && on.now) {
+            text = String(on.now[2]) + ' \u00b7 ' + guideTime(on.now[0]) + ' \u2013 ' + guideTime(on.now[0] + on.now[1]);
+            if (on.next) text += ' \u00b7 Next: ' + String(on.next[2]);
+        }
+        document.getElementById('nowPlayingGroup').textContent = text;
+    }
+
     function showOverlay() {
         if (!state.fullscreen) return;   // the overlay belongs to the full-screen player
+        showOverlayProgramme();
         var overlay = document.getElementById('playerOverlay');
         overlay.classList.add('visible');
         if (state.overlayTimeoutId) clearTimeout(state.overlayTimeoutId);
@@ -2459,4 +2585,5 @@
     // one-press iptv-org presets are right there.
     refreshActiveChannels({ screen: state.playlists.length ? 'screen-live' : 'screen-settings', after: restoreLastChannel });
     setTimeout(checkForUpdate, UPDATE_CHECK_DELAY_MS);
+    setTimeout(loadGuide, 1500);
 });

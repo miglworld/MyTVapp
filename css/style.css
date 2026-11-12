@@ -432,11 +432,28 @@ html.avplay-active .favorite-btn {
 	color: #aeaeb2;
 }
 
-.live-row .live-name {
+/* Channel name, and under it the programme that is on (when the guide knows). */
+.live-row .live-text {
 	flex: 1;
+	min-width: 0;
+}
+
+.live-row .live-name,
+.live-row .live-sub {
+	display: block;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+}
+
+.live-row .live-sub {
+	margin-top: 3px;
+	font-size: 16px;
+	color: #8e8e93;
+}
+
+.focused .live-sub {
+	color: #3a3a3c !important;
 }
 
 .live-row .live-mark {
@@ -477,8 +494,8 @@ html.avplay-active .favorite-btn {
 	left: 0;
 	right: 0;
 	bottom: 0;
-	height: 460px;
-	background: linear-gradient(0deg, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.55) 45%, rgba(0, 0, 0, 0) 100%);
+	height: 600px;
+	background: linear-gradient(0deg, rgba(0, 0, 0, 0.92) 0%, rgba(0, 0, 0, 0.62) 50%, rgba(0, 0, 0, 0) 100%);
 }
 
 .live-info {
@@ -535,6 +552,72 @@ html.avplay-active .favorite-btn {
 	margin-top: 10px;
 	font-size: 24px;
 	color: #c7c7cc;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* The programme that is on: title and times, a thin progress line, a short
+   description, and what follows. */
+.live-prog {
+	margin-top: 22px;
+	max-width: 900px;
+}
+
+.live-prog[hidden],
+.live-prog-bar[hidden] {
+	display: none;
+}
+
+.live-prog-now {
+	display: flex;
+	align-items: baseline;
+}
+
+.live-prog-title {
+	min-width: 0;
+	font-size: 30px;
+	font-weight: 600;
+	color: #ffffff;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.live-prog-time {
+	flex-shrink: 0;
+	margin-left: 18px;
+	font-size: 22px;
+	color: #c7c7cc;
+}
+
+.live-prog-bar {
+	height: 4px;
+	margin-top: 12px;
+	border-radius: 2px;
+	background: rgba(255, 255, 255, 0.22);
+	overflow: hidden;
+}
+
+.live-prog-fill {
+	height: 100%;
+	border-radius: 2px;
+	background: #ffffff;
+}
+
+.live-prog-desc {
+	margin-top: 12px;
+	max-height: 58px;
+	font-size: 20px;
+	line-height: 29px;
+	color: #c7c7cc;
+	overflow: hidden;
+}
+
+.live-prog-next {
+	margin-top: 10px;
+	font-size: 20px;
+	color: #8e8e93;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;

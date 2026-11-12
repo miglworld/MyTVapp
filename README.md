@@ -112,6 +112,8 @@ lib/hls.min.js        hls.js 1.6.19, bundled (license: lib/hls.LICENSE)
 icon.png              App icon referenced by config.xml
 package.json          Version and TizenBrew module info
 scripts/build-wgt.sh  Builds the unsigned MyTvApp.wgt
+scripts/build-guide.js  Builds the small programme guide (run by GitHub on a schedule)
+guide/config.json     Which playlists and guide feeds the programme guide is built from
 scripts/check.sh      Checks run before every merge (also by GitHub on each pull request)
 scripts/test.js       Tests for the playlist reader and version comparison
 .nojekyll             Makes GitHub Pages serve the files as they are
@@ -143,6 +145,15 @@ gh release create v<version> MyTvApp.wgt --title "MyTvApp <version>"
 ```
 
 `scripts/build-wgt.sh` refuses to build if the four versions differ.
+
+### Programme guide
+
+The TV does not read a full programme guide itself: one country's guide is tens of MB. Instead a job in this repository (`.github/workflows/guide.yml`, every four hours) runs `scripts/build-guide.js`, which downloads the guide feeds listed in `guide/config.json`, keeps only the channels of the playlists listed there and the next 48 hours, and publishes the result (about 300 KB) as `guide.json` on the `guide` branch.
+
+- `guide/config.json`: `playlists` (whose channels to keep), `feeds` (XMLTV guide files), `hours`.
+- Channels are matched by the playlist's `tvg-id` without its `@...` ending, in lower case.
+- The guide data comes from a third-party feed (iptv-epg.org at present) and is republished here in trimmed form. A channel the feed does not cover has no guide.
+- To build it by hand: `node scripts/build-guide.js out/guide.json`. To run the job now: `gh workflow run guide.yml`.
 
 ### Building a signed package with the Tizen CLI
 

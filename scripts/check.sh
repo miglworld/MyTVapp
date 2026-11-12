@@ -8,7 +8,7 @@ cd "$(dirname "$0")/.."
 fail() { echo "CHECK FAILED: $1" >&2; exit 1; }
 
 # 1. Every script parses.
-for f in js/main.js js/boot.js scripts/test.js; do
+for f in js/main.js js/boot.js scripts/test.js scripts/build-guide.js scripts/test-guide.js; do
 	node --check "$f" || fail "$f does not parse"
 done
 
@@ -55,6 +55,7 @@ sum=$( (shasum -a 256 lib/hls.min.js 2>/dev/null || sha256sum lib/hls.min.js) | 
 
 # 5. Tests.
 node scripts/test.js || fail "tests"
+node scripts/test-guide.js || fail "guide tests"
 
 # 6. In a pull request: app files changed => the version must be higher than on the base branch.
 if [ -n "$BASE_REF" ]; then

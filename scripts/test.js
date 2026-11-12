@@ -102,6 +102,69 @@ test('markup in names stays plain text for the page to show as text', function (
     assert.strictEqual(ch[0].group, '<img src=x onerror=alert(1)>');
 });
 
+test('the identity a playlist gives for a channel', function () {
+    var ch = app.parseM3U([
+        '#EXTINF:-1 tvg-id="a",From an option line',
+        '#EXTVLCOPT:http-referrer=https://example.com/',
+        '#EXTVLCOPT:http-user-agent=Mozilla/5.0 (X11; Linux x86_64; rv:149.0) Gecko/20100101 Firefox/149.0',
+        'http://e/a',
+        '#EXTINF:-1 user-agent="Mozilla/5.0 (KHTML, like Gecko) Chrome/149.0.0.0" group-title="Sports",From an attribute',
+        'http://e/b',
+        '#EXTINF:-1,None',
+        'http://e/c'
+    ].join('\n'));
+    assert.strictEqual(ch[0].userAgent, 'Mozilla/5.0 (X11; Linux x86_64; rv:149.0) Gecko/20100101 Firefox/149.0');
+    assert.strictEqual(ch[1].userAgent, 'Mozilla/5.0 (KHTML, like Gecko) Chrome/149.0.0.0');
+    assert.strictEqual(ch[1].name, 'From an attribute');
+    assert.strictEqual(ch[1].group, 'Sports');
+    assert.strictEqual(ch[2].userAgent, '');
+    // An option line belongs to the entry above it only.
+    assert.strictEqual(app.parseM3U('#EXTVLCOPT:http-user-agent=X\n#EXTINF:-1,A\nhttp://e/a')[0].userAgent, '');
+});
+
+test('an identity cannot smuggle in line breaks or be endless', function () {
+    assert.strictEqual(app.cleanUserAgent('Agent\r\nCookie: stolen=1'), 'AgentCookie: stolen=1');
+    assert.strictEqual(app.cleanUserAgent('  Mozilla/5.0  '), 'Mozilla/5.0');
+    assert.strictEqual(app.cleanUserAgent(new Array(400).join('x')), '');
+    assert.strictEqual(app.cleanUserAgent(undefined), '');
+});
+
+test('the rows a long list builds stay around the selected one', function () {
+    assert.deepStrictEqual(app.listWindow(0, 100, 10), { start: 0, end: 10 });
+    assert.deepStrictEqual(app.listWindow(50, 100, 10), { start: 45, end: 55 });
+    assert.deepStrictEqual(app.listWindow(99, 100, 10), { start: 90, end: 100 });
+    assert.deepStrictEqual(app.listWindow(2, 3, 10), { start: 0, end: 3 });
+    assert.deepStrictEqual(app.listWindow(0, 0, 10), { start: 0, end: 0 });
+});
+
+test('the programme at a given minute', function () {
+    var list = [[100, 30, 'A'], [130, 60, 'B'], [200, 10, 'C']];   // a gap from 190 to 200
+    assert.strictEqual(app.guideIndexAt(list, 100), 0);
+    assert.strictEqual(app.guideIndexAt(list, 129.9), 0);
+    assert.strictEqual(app.guideIndexAt(list, 130), 1);
+    assert.strictEqual(app.guideIndexAt(list, 195), 2);    // in the gap: the next one
+    assert.strictEqual(app.guideIndexAt(list, 50), 0);     // before everything: the first
+    assert.strictEqual(app.guideIndexAt(list, 999), 2);    // after everything: the last
+    assert.strictEqual(app.guideIndexAt([], 100), -1);
+});
+
+test('channels a playlist marks as unreliable', function () {
+    assert.strictEqual(app.isTagged({ name: 'SIC (1080p) [Geo-blocked]' }), true);
+    assert.strictEqual(app.isTagged({ name: 'RTP 1 (720p) [Not 24/7]' }), true);
+    assert.strictEqual(app.isTagged({ name: 'rtp [not 24/7]' }), true);
+    assert.strictEqual(app.isTagged({ name: 'TVI (720p)' }), false);
+    assert.strictEqual(app.isTagged({}), false);
+});
+
+test('how long ago, in words', function () {
+    var now = Date.now();
+    assert.strictEqual(app.ago(0), 'not yet');
+    assert.strictEqual(app.ago(now - 30 * 1000), 'just now');
+    assert.strictEqual(app.ago(now - 45 * 60 * 1000), '45 minutes ago');
+    assert.strictEqual(app.ago(now - 3 * 3600 * 1000), '3 hours ago');
+    assert.strictEqual(app.ago(now - 4 * 24 * 3600 * 1000), '4 days ago');
+});
+
 test('channel number attribute is kept', function () {
     assert.strictEqual(app.parseM3U('#EXTINF:-1 tvg-chno="12",A\nhttp://e/a')[0].chno, '12');
 });

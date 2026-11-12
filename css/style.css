@@ -36,60 +36,303 @@ button {
 }
 
 /* ==========================================================================
-   Focus
+   Focus: one look everywhere, defined here and nowhere else. The focused
+   control becomes a bright, slightly lifted piece of glass with dark text.
    ========================================================================== */
 .focused {
-	outline: 3px solid #ffffff;
-	box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
-	transform: scale(1.06);
+	background: rgba(255, 255, 255, 0.92) !important;
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(240, 240, 245, 0.9) 100%) !important;
+	color: #000000 !important;
+	outline: none;
+	box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 1);
+	transform: scale(1.03);
 	z-index: 2;
 }
 
-.rail-icon.focused {
-	transform: scale(1.15);
-	outline: none;
-	box-shadow: none;
-	background: #1a1a1a;
+.focused * {
+	color: #000000 !important;
 }
 
-.favorite-btn.focused {
-	transform: scale(1.06);
+/* The focus pill arrives quickly and settles: colour and lift ease out over
+   a sixth of a second. Only on controls that stay on screen (lists are
+   rebuilt on every key press, so there is nothing to animate there). */
+.menu-item,
+.setting-row,
+.notice-btn,
+.btn,
+.favorite-btn {
+	transition: background-color 0.16s ease-out, color 0.16s ease-out, transform 0.16s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	* {
+		transition: none !important;
+		animation: none !important;
+	}
 }
 
 /* ==========================================================================
-   Left icon rail
+   Side menu: a floating rounded panel.
    ========================================================================== */
-.icon-rail {
-	width: 110px;
-	height: 100%;
-	background: #000000;
-	border-right: 1px solid #161616;
+.sidebar {
+	position: relative;
+	z-index: 3;
+	width: 300px;
+	margin: 28px 0 28px 28px;
+	align-self: flex-start;
+	border-radius: 38px;
 	display: flex;
 	flex-direction: column;
-	align-items: center;
-	padding: 40px 0;
+	padding: 26px 16px 18px;
 	flex-shrink: 0;
 }
 
-.rail-icon {
-	width: 64px;
-	height: 64px;
-	border-radius: 50%;
+.brand {
+	display: flex;
+	align-items: baseline;
+	padding: 4px 16px 24px;
+}
+
+.brand-name {
+	flex: 1;
+	font-size: 24px;
+	font-weight: 600;
+	color: #f5f5f7;
+}
+
+.live-clock {
+	font-size: 20px;
+	color: #8e8e93;
+}
+
+.menu-item {
 	display: flex;
 	align-items: center;
-	justify-content: center;
-	color: #6c6c6c;
-	margin-bottom: 8px;
-	transition: color 0.15s, background 0.15s;
+	width: 100%;
+	height: 60px;
+	flex-shrink: 0;
+	padding: 0 18px;
+	margin-bottom: 4px;
+	border-radius: 30px;
+	font-size: 22px;
+	text-align: left;
+	color: #e5e5ea;
 }
 
-.rail-icon.active {
-	color: #ffffff;
-	background: #1a1a1a;
+.menu-icon {
+	flex-shrink: 0;
+	margin-right: 16px;
 }
 
-.rail-spacer {
+.menu-label {
 	flex: 1;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.menu-count {
+	flex-shrink: 0;
+	margin-left: 10px;
+	font-size: 18px;
+	color: #8e8e93;
+}
+
+/* The section that is showing, while the remote is elsewhere. */
+.menu-item.active {
+	color: #ffffff;
+}
+
+.menu-item.focused {
+	transform: none;
+	box-shadow: none;
+}
+
+.menu-scroll {
+	flex: 1;
+	min-height: 0;
+	overflow: hidden;
+}
+
+.menu-scroll .menu-item {
+	height: 52px;
+	border-radius: 26px;
+	font-size: 20px;
+}
+
+.menu-header {
+	flex-shrink: 0;
+	font-size: 17px;
+	font-weight: 600;
+	color: #8e8e93;
+	padding: 18px 18px 10px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.menu-header[hidden] {
+	display: none;
+}
+
+/* Live TV's own menu takes the main menu's place: a "back" capsule naming
+   where you are, All channels, then the categories. It is as tall as the
+   screen, because the categories can be many. */
+.menu-sub {
+	display: none;
+}
+
+.sidebar.sub {
+	align-self: stretch;
+}
+
+.sidebar.sub .brand,
+.sidebar.sub .menu-root {
+	display: none;
+}
+
+.sidebar.sub .menu-sub {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	min-height: 0;
+}
+
+.menu-item.menu-back {
+	width: auto;
+	align-self: flex-start;
+	padding: 0 24px 0 16px;
+	margin-bottom: 16px;
+	font-weight: 600;
+	color: #ffffff;
+	background: rgba(255, 255, 255, 0.12);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.menu-back-arrow {
+	margin-right: 10px;
+	font-size: 30px;
+	line-height: 1;
+}
+
+.menu-back .menu-icon {
+	margin-right: 12px;
+}
+
+/* ==========================================================================
+   Glass. The floating panels are a thin, light sheet: mostly clear, a bright
+   rim along the top-left edge, a faint one along the bottom-right, and a
+   soft shadow that lifts them off the picture.
+   Where the browser can do it, what lies behind is blurred as well. The
+   Samsung player draws its picture BEHIND the page, out of the page's reach,
+   so over that picture nothing can be blurred: there the glass is a little
+   darker instead, to keep the text readable, and the blur is switched off to
+   save the TV the work.
+   ========================================================================== */
+.sidebar,
+.live-channels,
+.guide-panel,
+.notice,
+.settings-cats,
+.settings-main,
+.channel-panel,
+.modal-box,
+.toast,
+.number-entry,
+.favorite-btn {
+	background: rgba(34, 34, 40, 0.46);
+	background: linear-gradient(140deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.07) 26%, rgba(255, 255, 255, 0.02) 62%, rgba(255, 255, 255, 0.09) 100%), rgba(34, 34, 40, 0.46);
+	border: 1px solid rgba(255, 255, 255, 0.2);
+	box-shadow: 0 26px 60px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.38), inset 1px 0 0 rgba(255, 255, 255, 0.14), inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+}
+
+html:not(.avplay-active) .sidebar,
+html:not(.avplay-active) .live-channels,
+html:not(.avplay-active) .guide-panel,
+html:not(.avplay-active) .notice,
+html:not(.avplay-active) .channel-panel,
+html:not(.avplay-active) .modal-box,
+html:not(.avplay-active) .toast,
+html:not(.avplay-active) .number-entry,
+html:not(.avplay-active) .favorite-btn {
+	-webkit-backdrop-filter: blur(34px) saturate(1.7);
+	backdrop-filter: blur(34px) saturate(1.7);
+}
+
+html.avplay-active .sidebar,
+html.avplay-active .live-channels,
+html.avplay-active .guide-panel,
+html.avplay-active .notice,
+html.avplay-active .channel-panel,
+html.avplay-active .modal-box,
+html.avplay-active .toast,
+html.avplay-active .number-entry,
+html.avplay-active .favorite-btn {
+	background: rgba(22, 22, 26, 0.66);
+	background: linear-gradient(140deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.06) 26%, rgba(255, 255, 255, 0.02) 62%, rgba(255, 255, 255, 0.08) 100%), rgba(22, 22, 26, 0.66);
+}
+
+/* What is selected while the remote is elsewhere: a faint glass plate. */
+.menu-item.active,
+.live-row.selected {
+	background: rgba(255, 255, 255, 0.14);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+/* ==========================================================================
+   The menu folds away. While the remote is in the channel list or on
+   another screen, the menu is a small capsule of icons in the corner and the
+   picture gets the room. Left opens it again.
+   ========================================================================== */
+.sidebar.collapsed {
+	width: 92px;
+	align-self: flex-start;
+	padding: 12px;
+	border-radius: 46px;
+}
+
+.sidebar.collapsed .brand,
+.sidebar.collapsed .menu-sub,
+.sidebar.collapsed .menu-label,
+.sidebar.collapsed .menu-count {
+	display: none;
+}
+
+.sidebar.collapsed .menu-root {
+	display: block;
+}
+
+.sidebar.collapsed .menu-item {
+	width: 66px;
+	height: 66px;
+	padding: 0;
+	margin-bottom: 6px;
+	border-radius: 50%;
+	justify-content: center;
+}
+
+.sidebar.collapsed .menu-item:last-child {
+	margin-bottom: 0;
+}
+
+.sidebar.collapsed .menu-icon {
+	margin-right: 0;
+}
+
+/* In the capsule, a category counts as Live TV. */
+.sidebar.collapsed .menu-item.active {
+	background: none;
+	box-shadow: none;
+	color: #e5e5ea;
+}
+
+.sidebar.collapsed[data-root="live"] #navLive,
+.sidebar.collapsed[data-root="guide"] #navGuide,
+.sidebar.collapsed[data-root="favorites"] #navFavorites,
+.sidebar.collapsed[data-root="settings"] #navSettings {
+	color: #ffffff;
+	background: rgba(255, 255, 255, 0.18);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
 }
 
 /* ==========================================================================
@@ -114,278 +357,323 @@ button {
 	display: block;
 }
 
-#screen-grid {
-	overflow-y: auto;
-	padding-bottom: 48px;
-}
-
-#screen-categories, #screen-category-channels, #screen-settings {
-	overflow-y: auto;
-	padding: 56px 72px;
-}
-
 .page-title {
-	font-size: 40px;
-	font-weight: 600;
+	font-size: 44px;
+	font-weight: 700;
 	margin-bottom: 32px;
 }
 
-/* ==========================================================================
-   Hero banner
-   ========================================================================== */
-.hero {
-	position: relative;
-	width: 100%;
-	height: 420px;
-	background: #0a0a0a;
-	overflow: hidden;
-}
-
-.hero-bg {
-	position: absolute;
-	top: 0;
-	right: 0;
-	bottom: 0;
-	left: 0;
-	background-repeat: no-repeat;
-	background-position: center;
-	background-size: cover;
-	opacity: 0.85;
-}
-
-.hero-gradient {
-	position: absolute;
-	top: 0;
-	right: 0;
-	bottom: 0;
-	left: 0;
-	background: linear-gradient(90deg, #000 15%, rgba(0, 0, 0, 0.65) 45%,
-		rgba(0, 0, 0, 0.15) 75%),
-		linear-gradient(0deg, #000 0%, rgba(0, 0, 0, 0) 40%);
-}
-
-.hero-content {
-	position: absolute;
-	left: 72px;
-	bottom: 56px;
-	max-width: 900px;
-}
-
-.hero-badge {
-	display: inline-block;
-	background: #e31c3d;
-	color: #fff;
-	font-size: 16px;
-	font-weight: 600;
-	letter-spacing: 1px;
-	padding: 5px 14px;
-	border-radius: 4px;
-	margin-bottom: 16px;
-}
-
-.hero-title {
-	font-size: 48px;
-	font-weight: 600;
-	margin-bottom: 10px;
-}
-
-.hero-subtitle {
-	font-size: 22px;
-	color: #c7c7c7;
-}
-
-/* ==========================================================================
-   Rows (Favorites, on Home)
-   ========================================================================== */
-.row {
-	padding: 0 72px;
-	margin-top: 36px;
-}
-
-.row-title {
-	font-size: 24px;
-	font-weight: 600;
-	color: #e6e6e6;
-	margin-bottom: 16px;
-}
-
-.tile-row {
-	display: flex;
-	overflow-x: auto;
-	padding-bottom: 8px;
-}
-
-.tile-row>* {
-	margin-right: 24px;
-	flex-shrink: 0;
-}
-
 .empty-hint {
-	font-size: 20px;
-	color: #5a5a5a;
-	padding: 20px 0;
+	font-size: 21px;
+	color: #8e8e93;
+	padding: 24px 22px;
 }
 
 /* ==========================================================================
-   Categories screen — two-column alphabetical list (no imagery). Using
-   nth-child(odd) for the inter-column gap rather than gap/grid, which this
-   WebKit doesn't support.
+   Live TV screen. The channel the list rests on plays behind the whole
+   screen (see "#screen-player.preview" below). Over it float the channel
+   list, as a second rounded panel, and the channel's caption.
    ========================================================================== */
-.category-row-item {
-	box-sizing: border-box;
-	flex: 0 0 calc(50% - 12px);
-	margin-bottom: 14px;
-	display: flex;
-	align-items: center;
-	background: #0d0d0d;
-	border: 1px solid #1c1c1c;
-	border-radius: 10px;
-	padding: 18px 24px;
-	text-align: left;
-	transition: background 0.15s, border-color 0.15s;
+#screen-live {
+	z-index: 2;
 }
 
-.category-row-item:nth-child(odd) {
-	margin-right: 24px;
-}
-
-.category-row-item:hover {
-	background: #131313;
-}
-
-.category-letter {
-	width: 42px;
-	height: 42px;
-	flex-shrink: 0;
-	border-radius: 50%;
-	background: #1a1a1a;
-	color: #6c9fff;
-	font-size: 18px;
-	font-weight: 700;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	margin-right: 18px;
-}
-
-.category-label {
-	flex: 1;
-	font-size: 23px;
-	color: #e6e6e6;
-}
-
-.category-count {
-	flex-shrink: 0;
-	font-size: 16px;
-	color: #5a5a5a;
-	margin-left: 12px;
-}
-
-/* ==========================================================================
-   Channel tiles — fixed-width flex-wrap grid (no CSS Grid), used on both
-   the Category Channels screen and the Favorites row.
-   ========================================================================== */
-.channel-grid {
-	display: flex;
-	flex-wrap: wrap;
-}
-
-/* Categories screen is a vertical stack of per-playlist sections (each its
-   own two-column flex-wrap grid) rather than one flat .channel-grid, so
-   categories from different active playlists don't run together. */
-#categoriesGrid {
-	display: block;
-}
-
-.category-section-header {
-	font-size: 20px;
-	font-weight: 600;
-	color: #8a8a8a;
-	text-transform: uppercase;
-	letter-spacing: 0.05em;
-	margin: 28px 0 14px;
-}
-
-.category-section-header:first-child {
-	margin-top: 0;
-}
-
-.category-section-grid {
-	display: flex;
-	flex-wrap: wrap;
-}
-
-.channel-tile {
-	width: 260px;
-	margin-right: 24px;
-	margin-bottom: 28px;
+.live-channels {
+	position: absolute;
+	z-index: 1;
+	top: 28px;
+	bottom: 28px;
+	left: 20px;
+	width: 540px;
 	display: flex;
 	flex-direction: column;
-	background: transparent;
+	border-radius: 38px;
 }
 
-.tile-row .channel-tile {
-	width: 260px;
-	margin-bottom: 0;
-}
-
-/* 16:9 box using the padding-bottom trick since aspect-ratio isn't supported */
-.tile-thumb {
-	position: relative;
-	width: 100%;
-	height: 0;
-	padding-bottom: 56.25%;
-	background-color: #111111;
-	background-repeat: no-repeat;
-	background-position: center;
-	background-size: contain;
-	border-radius: 8px;
-	overflow: hidden;
-}
-
-.tile-fallback {
-	position: absolute;
-	top: 0;
-	right: 0;
-	bottom: 0;
-	left: 0;
+.live-head {
 	display: flex;
-	align-items: center;
-	justify-content: center;
-	font-size: 40px;
-	font-weight: 600;
-	color: #4d4d4d;
+	align-items: baseline;
+	padding: 30px 30px 18px;
+	flex-shrink: 0;
 }
 
-.live-badge {
-	position: absolute;
-	top: 8px;
-	left: 8px;
-	background: #e31c3d;
-	color: #fff;
-	font-size: 12px;
+.live-title {
+	flex: 1;
+	font-size: 32px;
 	font-weight: 700;
-	letter-spacing: 0.5px;
-	padding: 3px 8px;
-	border-radius: 3px;
-}
-
-.fav-badge {
-	position: absolute;
-	top: 8px;
-	right: 8px;
-	color: #ffd23f;
-	font-size: 20px;
-	text-shadow: 0 0 6px rgba(0, 0, 0, 0.9);
-}
-
-.tile-name {
-	font-size: 18px;
-	padding-top: 10px;
-	color: #d8d8d8;
+	color: #f5f5f7;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+}
+
+.live-count {
+	flex-shrink: 0;
+	margin-left: 14px;
+	font-size: 19px;
+	color: #8e8e93;
+}
+
+.live-list {
+	flex: 1;
+	min-height: 0;
+	overflow: hidden;
+	padding: 0 14px;
+}
+
+/* 76 + 8 = 84 px per row: LIVE_ROW_H in js/main.js. */
+.live-row {
+	display: flex;
+	align-items: center;
+	height: 76px;
+	margin-bottom: 8px;
+	padding: 0 18px;
+	border-radius: 24px;
+	font-size: 23px;
+	color: #e5e5ea;
+}
+
+.live-row .live-num {
+	width: 60px;
+	flex-shrink: 0;
+	font-size: 19px;
+	color: #8e8e93;
+}
+
+.live-row .live-logo {
+	width: 72px;
+	height: 48px;
+	flex-shrink: 0;
+	margin-right: 18px;
+	border-radius: 12px;
+	background: rgba(255, 255, 255, 0.08) center / contain no-repeat;
+	text-align: center;
+	line-height: 48px;
+	font-size: 20px;
+	font-weight: 600;
+	color: #aeaeb2;
+}
+
+/* Channel name, and under it the programme that is on (when the guide knows). */
+.live-row .live-text {
+	flex: 1;
+	min-width: 0;
+}
+
+.live-row .live-name,
+.live-row .live-sub {
+	display: block;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.live-row .live-sub {
+	margin-top: 3px;
+	font-size: 18px;
+	color: #aeaeb2;
+}
+
+.focused .live-sub {
+	color: #3a3a3c !important;
+}
+
+.live-row .live-mark {
+	flex-shrink: 0;
+	margin-left: 12px;
+	font-size: 16px;
+	color: #8e8e93;
+}
+
+/* A small red dot: this is the channel that is playing. */
+.live-row .live-playing {
+	flex-shrink: 0;
+	width: 8px;
+	height: 8px;
+	margin-left: 12px;
+	border-radius: 50%;
+	background: #ff453a;
+	font-size: 0;
+}
+
+/* Darker: a channel the playlist marks as unreliable, or one that did not
+   play the last time it was tried. */
+.live-row.dim .live-name {
+	color: #8e8e93;
+}
+
+.live-row.dim .live-logo {
+	opacity: 0.45;
+}
+
+.live-row.dim.selected .live-name {
+	color: #aeaeb2;
+}
+
+.focused.dim .live-name {
+	color: #48484a !important;
+}
+
+/* The channel the list is on, while the remote is in the menu. */
+.live-row.selected {
+	color: #ffffff;
+}
+
+.live-row.focused {
+	box-shadow: none;
+}
+
+.live-row.focused .live-playing {
+	background: #ff453a;
+}
+
+/* Darkens the lower part of the picture so the caption stays readable. */
+.live-scrim {
+	position: absolute;
+	z-index: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	height: 600px;
+	background: linear-gradient(0deg, rgba(0, 0, 0, 0.92) 0%, rgba(0, 0, 0, 0.62) 50%, rgba(0, 0, 0, 0) 100%);
+}
+
+.live-info {
+	position: absolute;
+	z-index: 1;
+	left: 620px;
+	right: 64px;
+	bottom: 56px;
+}
+
+.live-badges {
+	height: 26px;
+	margin-bottom: 10px;
+}
+
+.badge-live,
+.badge-fav {
+	display: inline-block;
+	margin-right: 18px;
+	font-size: 17px;
+	font-weight: 600;
+	letter-spacing: 1.5px;
+}
+
+.badge-live {
+	color: #ff453a;
+}
+
+.badge-fav {
+	color: #c7c7cc;
+}
+
+.badge-live[hidden],
+.badge-fav[hidden] {
+	display: none;
+}
+
+.live-info-name {
+	font-size: 64px;
+	font-weight: 700;
+	line-height: 1.1;
+	color: #ffffff;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.live-info-number {
+	color: rgba(255, 255, 255, 0.45);
+	margin-right: 20px;
+}
+
+.live-info-group {
+	margin-top: 10px;
+	font-size: 24px;
+	color: #c7c7cc;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* The programme that is on: title and times, a thin progress line, a short
+   description, and what follows. */
+.live-prog {
+	margin-top: 22px;
+	max-width: 900px;
+}
+
+.live-prog[hidden],
+.live-prog-bar[hidden] {
+	display: none;
+}
+
+.live-prog-now {
+	display: flex;
+	align-items: baseline;
+}
+
+.live-prog-title {
+	min-width: 0;
+	font-size: 30px;
+	font-weight: 600;
+	color: #ffffff;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.live-prog-time {
+	flex-shrink: 0;
+	margin-left: 18px;
+	font-size: 22px;
+	color: #c7c7cc;
+}
+
+.live-prog-bar {
+	height: 4px;
+	margin-top: 12px;
+	border-radius: 2px;
+	background: rgba(255, 255, 255, 0.22);
+	overflow: hidden;
+}
+
+.live-prog-fill {
+	height: 100%;
+	border-radius: 2px;
+	background: #ffffff;
+}
+
+.live-prog-desc {
+	margin-top: 12px;
+	max-height: 58px;
+	font-size: 20px;
+	line-height: 29px;
+	color: #c7c7cc;
+	overflow: hidden;
+}
+
+.live-prog-next {
+	margin-top: 10px;
+	font-size: 20px;
+	color: #8e8e93;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.live-status {
+	min-height: 26px;
+	margin-top: 14px;
+	font-size: 20px;
+	color: #aeaeb2;
+}
+
+.live-keys {
+	margin-top: 18px;
+	font-size: 19px;
+	color: rgba(255, 255, 255, 0.6);
 }
 
 .loading-indicator {
@@ -395,7 +683,7 @@ button {
 	transform: translate(-50%, -50%);
 	text-align: center;
 	font-size: 26px;
-	color: #a8a8a8;
+	color: #8e8e93;
 	background: rgba(8, 8, 8, 0.85);
 	padding: 28px 44px;
 	border-radius: 12px;
@@ -414,7 +702,7 @@ button {
 	left: 50%;
 	transform: translate(-50%, -50%);
 	font-size: 28px;
-	color: #8a8a8a;
+	color: #8e8e93;
 }
 
 .spinner {
@@ -432,128 +720,456 @@ button {
 }
 
 /* ==========================================================================
-   Settings screen — playlist management
+   TV Guide: one glass panel over the picture. Channels down the left,
+   time across; every programme is a cell placed and sized by its times
+   (js/main.js: GUIDE_PX_PER_MIN px per minute). No CSS Grid: cells are
+   absolutely positioned inside each row's track.
    ========================================================================== */
-.app-version {
-	font-size: 18px;
-	color: #5a5a5a;
-	margin-top: 36px;
+#screen-guide {
+	z-index: 2;
 }
 
-.settings-hint {
-	font-size: 20px;
-	color: #6c6c6c;
-	margin-bottom: 32px;
-	margin-top: -20px;
-}
-
-.playlist-list {
-	max-width: 1300px;
-}
-
-.playlist-row-wrapper {
+.guide-panel {
+	position: absolute;
+	top: 28px;
+	right: 28px;
+	bottom: 28px;
+	left: 20px;
 	display: flex;
-	align-items: stretch;
-	margin-bottom: 16px;
+	flex-direction: column;
+	padding: 26px 26px 16px;
+	border-radius: 38px;
 }
 
-.playlist-row {
-	flex: 1;
+/* A grid of text needs a calmer surface than the lists do. */
+#screen-guide .guide-panel {
+	background: rgba(18, 18, 22, 0.8);
+	background: linear-gradient(140deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.04) 26%, rgba(255, 255, 255, 0.02) 100%), rgba(18, 18, 22, 0.8);
+}
+
+.guide-head {
 	display: flex;
-	align-items: center;
-	text-align: left;
-	background: #0d0d0d;
-	border: 1px solid #1e1e1e;
-	border-radius: 10px;
-	padding: 20px 24px;
-}
-
-.playlist-row.active {
-	border-color: #4d4d4d;
-}
-
-.playlist-checkbox {
+	align-items: baseline;
 	flex-shrink: 0;
-	width: 28px;
-	height: 28px;
-	margin-right: 20px;
-	border: 2px solid #4d4d4d;
-	border-radius: 6px;
+	padding: 4px 8px 0;
+}
+
+.guide-title {
+	flex: 1;
+	font-size: 32px;
+	font-weight: 700;
+	color: #f5f5f7;
+}
+
+.guide-date {
+	font-size: 22px;
+	color: #8e8e93;
+}
+
+.guide-info {
+	flex-shrink: 0;
+	height: 168px;
+	padding: 18px 8px 0;
+	overflow: hidden;
+}
+
+.guide-info-title {
+	font-size: 36px;
+	font-weight: 700;
+	color: #ffffff;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.guide-info-meta {
+	margin-top: 6px;
+	font-size: 22px;
+	color: #c7c7cc;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.guide-info-desc {
+	margin-top: 8px;
+	max-height: 58px;
+	font-size: 20px;
+	line-height: 29px;
+	color: #aeaeb2;
+	overflow: hidden;
+}
+
+.guide-ruler-row {
+	display: flex;
+	flex-shrink: 0;
+	height: 40px;
+}
+
+.guide-ch-space,
+.guide-ch {
+	width: 300px;
+	flex-shrink: 0;
+}
+
+.guide-ruler {
+	position: relative;
+	flex: 1;
+	overflow: hidden;
+}
+
+.guide-tick {
+	position: absolute;
+	top: 6px;
+	padding-left: 8px;
+	border-left: 1px solid rgba(255, 255, 255, 0.25);
+	font-size: 19px;
+	line-height: 26px;
+	color: #c7c7cc;
+}
+
+.guide-rows {
+	position: relative;
+	flex: 1;
+	min-height: 0;
+	overflow: hidden;
+}
+
+/* 72 + 8 = 80 px per row: GUIDE_ROW_H in js/main.js. */
+.guide-row {
+	display: flex;
+	height: 72px;
+	margin-bottom: 8px;
+}
+
+.guide-ch {
 	display: flex;
 	align-items: center;
-	justify-content: center;
-	font-size: 18px;
-	line-height: 1;
+	padding: 0 14px 0 8px;
+	font-size: 21px;
+	color: #c7c7cc;
+}
+
+.guide-row.current .guide-ch {
 	color: #ffffff;
 }
 
-.playlist-checkbox.checked {
-	background: #1c5ea8;
-	border-color: #1c5ea8;
+.guide-ch .live-logo {
+	width: 66px;
+	height: 44px;
+	flex-shrink: 0;
+	margin-right: 14px;
+	border-radius: 10px;
+	background: rgba(255, 255, 255, 0.08) center / contain no-repeat;
+	text-align: center;
+	line-height: 44px;
+	font-size: 18px;
+	font-weight: 600;
+	color: #aeaeb2;
 }
 
-.playlist-row-text {
+.guide-ch-name {
+	min-width: 0;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.guide-track {
+	position: relative;
+	flex: 1;
+	overflow: hidden;
+}
+
+.guide-cell {
+	position: absolute;
+	top: 0;
+	height: 72px;
+	padding: 0 14px;
+	border-radius: 16px;
+	background: rgba(255, 255, 255, 0.07);
+	font-size: 21px;
+	line-height: 72px;
+	color: #c7c7cc;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* On right now. */
+.guide-cell.on {
+	background: rgba(255, 255, 255, 0.15);
+	color: #ffffff;
+}
+
+.guide-cell.empty {
+	background: none;
+	color: #8e8e93;
+}
+
+.guide-cell.focused {
+	transform: none;
+	box-shadow: none;
+}
+
+/* The present. */
+.guide-now {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	width: 2px;
+	background: #ff453a;
+	z-index: 3;
+}
+
+.guide-keys {
+	flex-shrink: 0;
+	padding: 8px 8px 0;
+	font-size: 19px;
+	color: #8e8e93;
+}
+
+/* ==========================================================================
+   Settings screen: two glass panels. Sections on the left, the chosen
+   section's rows on the right, and under them a sentence about the row the
+   remote is on. Rows share one shape: label on the left, then a value, a
+   switch or an arrow on the right.
+   ========================================================================== */
+#screen-settings.active {
+	display: flex;
+	padding: 28px 28px 28px 20px;
+}
+
+.settings-cats,
+.settings-main {
+	border-radius: 38px;
+	display: flex;
+	flex-direction: column;
+}
+
+.settings-cats {
+	width: 400px;
+	flex-shrink: 0;
+	padding: 26px 16px 18px;
+}
+
+.settings-title,
+.settings-section-title {
+	flex-shrink: 0;
+	font-size: 32px;
+	font-weight: 700;
+	color: #f5f5f7;
+}
+
+.settings-title {
+	padding: 4px 16px 22px;
+}
+
+.settings-main {
 	flex: 1;
 	min-width: 0;
+	margin-left: 20px;
+	padding: 30px 30px 22px;
 }
 
-.playlist-name {
-	font-size: 22px;
+.settings-section-title {
+	padding: 0 8px 18px;
+}
+
+.settings-rows {
+	flex: 1;
+	min-height: 0;
+	overflow: hidden;
+	padding: 4px 6px;
+}
+
+/* The sentence about the focused row. Fixed height, so rows do not jump. */
+.settings-hint {
+	flex-shrink: 0;
+	height: 76px;
+	margin-top: 14px;
+	padding: 14px 8px 0;
+	border-top: 1px solid rgba(255, 255, 255, 0.12);
+	font-size: 21px;
+	line-height: 30px;
+	color: #aeaeb2;
+	overflow: hidden;
+}
+
+.setting-group {
+	padding: 18px 10px 10px;
+	font-size: 19px;
 	font-weight: 600;
-	margin-bottom: 4px;
+	color: #8e8e93;
 }
 
-.playlist-url {
-	font-size: 16px;
-	color: #7a7a7a;
-	word-break: break-all;
+.setting-group:first-child {
+	padding-top: 2px;
 }
 
-.playlist-row.add-row {
-	color: #6c9fff;
-	font-size: 20px;
-	text-align: center;
+.setting-line {
+	display: flex;
+	margin-bottom: 8px;
+}
+
+.setting-row {
 	display: flex;
 	align-items: center;
-	justify-content: center;
-	width: 100%;
-	margin-bottom: 16px;
-}
-
-.playlist-action-btn {
-	flex-shrink: 0;
-	width: 100px;
-	margin-left: 16px;
-	background: #0d0d0d;
-	border: 1px solid #1e1e1e;
-	border-radius: 10px;
-	font-size: 18px;
-	color: #d8d8d8;
-}
-
-.playlist-row.option-row {
-	color: #c7c7c7;
-	margin-top: 32px;
-}
-
-.playlist-row.option-row.second {
-	margin-top: 0;
-}
-
-.playlist-row.log-row {
-	display: block;
+	flex: 1;
+	min-width: 0;
+	min-height: 72px;
+	padding: 0 22px;
+	border-radius: 24px;
+	background: rgba(255, 255, 255, 0.07);
+	font-size: 23px;
 	text-align: left;
+	color: #f5f5f7;
+}
+
+.setting-label {
+	flex: 1;
+	min-width: 0;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.setting-value {
+	flex-shrink: 0;
+	margin-left: 18px;
+	font-size: 21px;
+	color: #aeaeb2;
+}
+
+.setting-arrow {
+	flex-shrink: 0;
+	margin-left: 14px;
+	font-size: 28px;
+	line-height: 1;
+	color: #8e8e93;
+}
+
+/* A fact, not a control: no plate behind it. */
+.setting-info {
+	display: flex;
+	align-items: center;
+	min-height: 56px;
+	padding: 0 22px;
+	font-size: 22px;
+	color: #c7c7cc;
+}
+
+.setting-info .setting-value {
+	flex-shrink: 1;
+	min-width: 0;
+	color: #f5f5f7;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* Switch: a capsule with a round knob; green and knob to the right when on. */
+.switch {
+	position: relative;
+	flex-shrink: 0;
+	width: 62px;
+	height: 36px;
+	margin-left: 18px;
+	border-radius: 18px;
+	background: rgba(255, 255, 255, 0.22);
+}
+
+.switch span {
+	position: absolute;
+	top: 3px;
+	left: 3px;
+	width: 30px;
+	height: 30px;
+	border-radius: 50%;
+	background: #ffffff;
+	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.switch.on {
+	background: #30d158;
+}
+
+.switch.on span {
+	left: 29px;
+}
+
+.focused .switch {
+	background: #b9b9be;
+}
+
+.focused .switch.on {
+	background: #30d158;
+}
+
+/* A playlist: name over its address. */
+.setting-playlist {
+	min-height: 88px;
+}
+
+.setting-playlist .playlist-name,
+.setting-playlist .playlist-url {
+	display: block;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.setting-playlist .playlist-name {
+	font-size: 23px;
+	font-weight: 600;
+}
+
+.setting-playlist .playlist-url {
+	margin-top: 4px;
+	font-size: 18px;
+	color: #8e8e93;
+}
+
+/* Edit and Delete, beside a playlist. */
+.setting-side {
+	flex: 0 0 132px;
+	justify-content: center;
+	margin-left: 10px;
+	padding: 0;
+	font-size: 21px;
+}
+
+.setting-side.delete {
+	color: #ff6961;
+}
+
+/* The diagnostics list: a page of small text. */
+.setting-log {
+	display: block;
+	padding: 18px 22px;
 	white-space: pre-wrap;
 	word-break: break-all;
 	font-family: monospace;
-	font-size: 17px;
-	line-height: 1.45;
-	color: #8a8a8a;
-	margin-top: 32px;
+	font-size: 18px;
+	line-height: 1.5;
+	color: #aeaeb2;
 }
 
-.playlist-action-btn.delete {
-	color: #ff6b6b;
+/* It does not turn white: an outline is enough. */
+.setting-log.focused {
+	background: rgba(255, 255, 255, 0.1) !important;
+	color: #f5f5f7 !important;
+	box-shadow: 0 0 0 2px #f5f5f7;
+	transform: none;
+}
+
+.setting-row.focused {
+	box-shadow: none;
+	transform: none;
+}
+
+.focused .playlist-url {
+	color: #48484a !important;
 }
 
 /* ==========================================================================
@@ -583,7 +1199,7 @@ button {
 
 .add-playlist-panel .hint {
 	font-size: 22px;
-	color: #8a8a8a;
+	color: #8e8e93;
 	margin-bottom: 28px;
 }
 
@@ -593,24 +1209,25 @@ button {
 	box-sizing: border-box;
 	font-family: inherit;
 	font-size: 28px;
-	background: #0d0d0d;
-	border: 2px solid #262626;
-	border-radius: 10px;
+	background: #161618;
+	border: 2px solid #2c2c2e;
+	border-radius: 20px;
 	padding: 20px 24px;
 	margin-bottom: 18px;
-	color: #6c9fff;
+	color: #f5f5f7;
 	outline: none;
 }
 
 .url-input.focused,
 .url-input:focus {
-	border-color: #6c9fff;
-	box-shadow: 0 0 0 4px rgba(108, 159, 255, 0.35);
+	border-color: #f5f5f7;
+	box-shadow: none;
+	transform: none;
 }
 
 .input-tip {
 	font-size: 20px;
-	color: #6f6f6f;
+	color: #636366;
 	margin-bottom: 32px;
 }
 
@@ -625,16 +1242,77 @@ button {
 .btn {
 	font-size: 24px;
 	padding: 16px 42px;
-	border-radius: 10px;
-	background: #0d0d0d;
-	border: 1px solid #1e1e1e;
-	color: #d8d8d8;
+	border-radius: 20px;
+	background: #161618;
+	border: 1px solid transparent;
+	color: #f5f5f7;
 }
 
 .btn.primary {
-	background: #1c5ea8;
-	border-color: #1c5ea8;
+	background: #2c2c2e;
+	border-color: #2c2c2e;
+	color: #f5f5f7;
+}
+
+/* ==========================================================================
+   Notice: a small glass card in the top right corner (a downloaded update
+   asking to be installed). It drops in from just above its place.
+   ========================================================================== */
+.notice {
+	position: fixed;
+	top: 36px;
+	right: 36px;
+	width: 440px;
+	padding: 22px 24px 20px;
+	border-radius: 28px;
+	z-index: 1200;
+	animation: notice-in 0.3s ease-out;
+}
+
+.notice[hidden] {
+	display: none;
+}
+
+/* Position only, and a short way: if the effect ever stalls, the card is
+   still fully visible and on screen. */
+@keyframes notice-in {
+	from { transform: translateY(-20px); }
+	to { transform: translateY(0); }
+}
+
+.notice-title {
+	font-size: 22px;
+	font-weight: 700;
 	color: #ffffff;
+}
+
+.notice-text {
+	margin-top: 4px;
+	font-size: 19px;
+	color: #c7c7cc;
+}
+
+.notice-actions {
+	display: flex;
+	margin-top: 16px;
+}
+
+.notice-btn {
+	flex: 1;
+	height: 50px;
+	border-radius: 25px;
+	font-size: 19px;
+	font-weight: 600;
+	color: #f5f5f7;
+	background: rgba(255, 255, 255, 0.12);
+}
+
+.notice-btn:first-child {
+	margin-right: 12px;
+}
+
+.notice-btn.focused {
+	box-shadow: none;
 }
 
 /* ==========================================================================
@@ -659,10 +1337,8 @@ button {
 }
 
 .modal-box {
-	background: #141414;
-	border: 1px solid #262626;
-	border-radius: 10px;
-	padding: 36px 42px;
+	border-radius: 38px;
+	padding: 40px 46px;
 	max-width: 700px;
 	text-align: center;
 }
@@ -670,7 +1346,7 @@ button {
 .modal-box p {
 	font-size: 26px;
 	margin: 0 0 28px;
-	color: #d8d8d8;
+	color: #f5f5f7;
 }
 
 .modal-actions {
@@ -706,9 +1382,29 @@ html.avplay-active #screen-player {
 	background: transparent !important;
 }
 
-html.avplay-active #videoPlayer,
-html.avplay-active .icon-rail {
+html.avplay-active #videoPlayer {
 	visibility: hidden;
+}
+
+/* Full screen: nothing but the picture and the player's own overlays. */
+html.video-full .sidebar {
+	visibility: hidden;
+}
+
+/* The picture behind the Live TV screen: same full-size player, placed under
+   the menu and the channel list, with its own overlays hidden. */
+#screen-player.preview {
+	display: block;
+	z-index: 0;
+}
+
+#screen-player.preview > * {
+	display: none;
+}
+
+#screen-player.preview > video,
+#screen-player.preview > object {
+	display: block;
 }
 
 #avPlayer {
@@ -725,6 +1421,7 @@ html.avplay-active .icon-rail {
 	background: #000;
 }
 
+/* Full screen: the channel's caption at the bottom, like on the Live TV screen. */
 .player-overlay {
 	position: absolute;
 	top: 0;
@@ -732,11 +1429,10 @@ html.avplay-active .icon-rail {
 	bottom: 0;
 	left: 0;
 	display: flex;
-	align-items: center;
+	align-items: flex-end;
 	justify-content: space-between;
-	padding: 56px 72px;
-	background: linear-gradient(180deg, rgba(0, 0, 0, 0.8) 0%,
-		rgba(0, 0, 0, 0) 30%);
+	padding: 56px 72px 92px;
+	background: linear-gradient(0deg, rgba(0, 0, 0, 0.88) 0%, rgba(0, 0, 0, 0.45) 22%, rgba(0, 0, 0, 0) 46%);
 	opacity: 0;
 	pointer-events: none;
 	transition: opacity 0.25s ease;
@@ -748,24 +1444,24 @@ html.avplay-active .icon-rail {
 
 .player-status {
 	font-size: 20px;
-	color: #9fb8e8;
+	color: #8e8e93;
 	margin-top: 8px;
 	max-width: 1100px;
 }
 
 .now-playing-number {
-	color: #6c9fff;
-	margin-right: 14px;
+	color: rgba(255, 255, 255, 0.45);
+	margin-right: 18px;
 }
 
 .player-keys-hint {
 	position: absolute;
-	left: 0;
-	right: 0;
-	bottom: 24px;
-	text-align: center;
-	font-size: 20px;
-	color: rgba(255, 255, 255, 0.55);
+	left: 72px;
+	right: 72px;
+	bottom: 40px;
+	text-align: left;
+	font-size: 19px;
+	color: rgba(255, 255, 255, 0.65);
 	opacity: 0;
 	transition: opacity 0.3s;
 	pointer-events: none;
@@ -777,15 +1473,14 @@ html.avplay-active .icon-rail {
 
 .channel-panel {
 	position: absolute;
-	top: 0;
-	bottom: 0;
-	left: 0;
-	width: 680px;
-	background: rgba(8, 8, 8, 0.94);
-	border-right: 1px solid #1e1e1e;
+	top: 28px;
+	bottom: 28px;
+	left: 28px;
+	width: 640px;
+	border-radius: 38px;
 	display: flex;
 	flex-direction: column;
-	padding: 40px 0 24px;
+	padding: 32px 0 20px;
 	z-index: 5;
 }
 
@@ -805,56 +1500,12 @@ html.avplay-active .icon-rail {
 .channel-panel-list {
 	flex: 1;
 	overflow: hidden;
-}
-
-.panel-row {
-	display: flex;
-	align-items: center;
-	height: 78px;
-	padding: 0 36px;
-	font-size: 24px;
-	color: #c8c8c8;
-	border-left: 4px solid transparent;
-}
-
-.panel-row.focused {
-	background: #1c2b45;
-	color: #ffffff;
-	border-left-color: #6c9fff;
-}
-
-.panel-row .panel-num {
-	width: 70px;
-	color: #6c9fff;
-	flex-shrink: 0;
-}
-
-.panel-row .panel-logo {
-	width: 64px;
-	height: 44px;
-	margin-right: 18px;
-	background: #151515 center / contain no-repeat;
-	border-radius: 6px;
-	flex-shrink: 0;
-}
-
-.panel-row .panel-name {
-	flex: 1;
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-}
-
-.panel-row .panel-playing {
-	font-size: 16px;
-	color: #6c9fff;
-	margin-left: 12px;
-	letter-spacing: 1px;
+	padding: 0 14px;
 }
 
 .channel-panel-hint {
 	font-size: 18px;
-	color: #6f6f6f;
+	color: #636366;
 	padding: 16px 36px 0;
 }
 
@@ -868,9 +1519,7 @@ html.avplay-active .icon-rail {
 	font-weight: 600;
 	text-align: center;
 	color: #ffffff;
-	background: rgba(8, 8, 8, 0.85);
-	border: 2px solid #6c9fff;
-	border-radius: 12px;
+	border-radius: 24px;
 	z-index: 6;
 }
 
@@ -884,24 +1533,28 @@ html.avplay-active .icon-rail {
 }
 
 .channel-logo {
-	width: 68px;
-	height: 68px;
-	margin-right: 22px;
-	background-color: #0d0d0d;
+	width: 96px;
+	height: 66px;
+	margin-right: 26px;
+	flex-shrink: 0;
+	background-color: rgba(255, 255, 255, 0.08);
 	background-repeat: no-repeat;
 	background-position: center;
 	background-size: contain;
-	border-radius: 8px;
+	border-radius: 12px;
 }
 
 .now-playing-name {
-	font-size: 32px;
-	font-weight: 600;
+	font-size: 52px;
+	font-weight: 700;
+	line-height: 1.1;
+	color: #ffffff;
 }
 
 .now-playing-group {
-	font-size: 20px;
-	color: #8a8a8a;
+	margin-top: 8px;
+	font-size: 22px;
+	color: #c7c7cc;
 }
 
 .favorite-btn {
@@ -910,24 +1563,22 @@ html.avplay-active .icon-rail {
 	font-size: 22px;
 	padding: 16px 28px;
 	border-radius: 999px;
-	background: #141414;
-	border: 2px solid #262626;
-	color: #d8d8d8;
+	color: #f5f5f7;
 	flex-shrink: 0;
 }
 
 .favorite-btn #favoriteIcon {
 	font-size: 26px;
 	margin-right: 10px;
-	color: #5a5a5a;
+	color: #636366;
 }
 
 .favorite-btn.active {
-	border-color: #ffd23f;
+	color: #ffffff;
 }
 
 .favorite-btn.active #favoriteIcon {
-	color: #ffd23f;
+	color: #f5f5f7;
 }
 
 .toast {
@@ -936,10 +1587,8 @@ html.avplay-active .icon-rail {
 	bottom: 60px;
 	left: 50%;
 	transform: translateX(-50%) translateY(20px);
-	background: #141414;
-	border: 1px solid #262626;
 	padding: 16px 30px;
-	border-radius: 10px;
+	border-radius: 999px;
 	font-size: 22px;
 	opacity: 0;
 	transition: opacity 0.2s, transform 0.2s;

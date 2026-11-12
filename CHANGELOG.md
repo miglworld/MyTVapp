@@ -2,6 +2,32 @@
 
 MyTvApp's own history starts at v0.1. Newest first. Each entry also names the version number the app showed at the time.
 
+## v0.12.0 (2026-11-12)
+*Tested on the `dev` branch as 0.11.0 to 0.11.14.*
+- New Live TV screen in place of the home, categories and channel grid screens: the channel plays behind the whole screen, with a floating side menu (every category) and a floating numbered channel list over it, and the channel's caption at the bottom.
+- One playback for browsing and full screen: OK hides the panels, Back shows them again, and the stream is not restarted.
+- New minimal look: black base, rounded glass panels with a light edge, a bright pill for the focused item. The panels blur what is behind them where the browser can (not over the Samsung player's picture, which lies outside the page).
+- Full screen: the caption sits at the bottom, and the channel list is a floating glass panel.
+- The menu has two levels: Live TV, Favorites and Settings; Live TV opens its own menu (a "‹ Live TV" header, All channels, then the categories) in the same place.
+- The menu folds into a small capsule of icons while the remote is in the channel list or on another screen, and opens again with Left.
+- Lighter glass with a bright rim, larger curves, round menu and list items.
+- Settings, About: the TV's software (Tizen and browser version), when the programme guide was built, the result of the last update check, and the last app error, which is now kept apart from the rolling diagnostics list.
+- Repository: tests for the list window, the guide lookup and channel tags; `docs/decisions.md` records why the app is built the way it is.
+- New Settings screen: five sections on the left (Playlists, Playback, Channels, Updates, About) and the chosen section's rows on the right, with real switches, current values, and a sentence under the rows explaining the one the remote is on. Playlists show their channel count; About holds the version and the diagnostics list.
+- Readability: the faintest greys are lighter and the smallest texts larger, across the app. The focus pill eases in on menus, settings and buttons, and nothing animates when the TV asks for reduced motion.
+- A downloaded update no longer restarts the app by itself: a small notice in the top right corner offers "Update now" or "Later". It waits while a channel is full screen, and "Later" installs the update at the next start.
+- When a playlist gives a channel the browser identity (user agent) its server expects, the Samsung player uses it for that channel. Settings switch, on by default. The "referrer" some playlists also give cannot be sent by a TV app.
+- Channels a playlist marks as "[Geo-blocked]" or "[Not 24/7]" are shown darker; a Settings switch can hide them or show them as normal.
+- A channel that did not play is remembered, shown darker with "Did not play last time", until it plays again. Settings can forget them all.
+- TV Guide screen (new menu entry): the channels that have a guide down the left, time across, a line for the present, and the highlighted programme's details at the top. Left/Right move through a channel's programmes, Up/Down change channel, OK on a programme that is on plays the channel, and Back from full screen returns to the guide.
+- Programme guide, first part: channels the guide covers show what is on under their name in the list, and the caption shows the programme's title, times, progress, a short description and what is next. Full screen shows it in the info bar. The guide is the small file this repository builds every four hours.
+- New menu icons, drawn as one set: outlines of a TV, a star and a gear with the same line weight.
+- Updates are downloaded from one exact commit. Before, the files were fetched by branch name, where GitHub can serve a new script next to an old page for a few minutes; a TV that updated in that window got a version that could not start (this is what happened to 0.11.4). The app also checks that page and script match before storing an update, and "Check for updates now" may retry a version that failed.
+- Review fixes: a channel that did not start at the last launch is not started by itself again; a category stays the same category when playlists change; "previous channel" and the channel to start on are the last ones watched full screen, not ones the list passed over; removing a favorite keeps your place in the list; the diagnostics list no longer fills up with channels passed over.
+- Faster channel start (Settings switch, on by default): the Samsung player shows the picture after 2 seconds of buffer.
+- Plain status texts ("Connecting…", "Playing · 1920x1080 · 4.8 Mbps", "Not available right now…"). Which player was tried and why it failed is in the diagnostics list.
+- A channel the first player cannot show is given up on sooner (7 s per fallback instead of 12 s).
+
 ## v0.10.1 (2026-11-11)
 Security review.
 - Only real stream addresses (`http`, `https`, `rtmp`, `rtsp`, `rtp`, `udp`, `mms`) become channels; logos must be web addresses; playlists over 40 MB are refused.

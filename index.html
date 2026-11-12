@@ -30,68 +30,109 @@ window.onerror = function (msg, file, line) {
 		<!-- Shown until the app script has started (it removes this). -->
 		<div id="bootMsg">Starting MyTvApp&hellip;</div>
 
-		<!-- ===================== Left icon rail ===================== -->
-		<nav class="icon-rail">
-			<button class="rail-icon active" id="navHome" tabindex="-1"
-				title="Home">
-				<svg viewBox="0 0 24 24" width="30" height="30">
-					<path fill="currentColor" d="M12 3 2 12h3v8h6v-6h2v6h6v-8h3z" /></svg>
+		<!-- ===================== Side menu =====================
+		     Icons: one drawn set. Outlines only, 24 px grid, 1.7 px rounded strokes. -->
+		<nav class="sidebar" id="sidebar">
+			<div class="brand"><span class="brand-name">MyTvApp</span><span class="live-clock" id="liveClock"></span></div>
+			<!-- Main menu -->
+			<div class="menu-root">
+			<button class="menu-item" id="navLive" tabindex="-1">
+				<svg class="menu-icon" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+					<path d="M5.5 7.5h13a2.5 2.5 0 0 1 2.5 2.5v7.5a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.500V10a2.5 2.5 0 0 1 2.5-2.5Z M8 3l4 4.5L16 3" /></svg>
+				<span class="menu-label">Live TV</span><span class="menu-count" id="navLiveCount"></span>
 			</button>
-			<button class="rail-icon" id="navCategories" tabindex="-1"
-				title="Categories">
-				<svg viewBox="0 0 24 24" width="28" height="28">
-					<path fill="currentColor"
-						d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" /></svg>
+			<button class="menu-item" id="navGuide" tabindex="-1">
+				<svg class="menu-icon" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+				<path d="M6 5h12a2.5 2.5 0 0 1 2.5 2.5v10A2.5 2.5 0 0 1 18 20H6a2.5 2.5 0 0 1-2.5-2.5v-10A2.5 2.5 0 0 1 6 5Z M8 3v3.5 M16 3v3.5 M3.5 10h17 M7.5 13.5h5 M7.5 16.5h8" /></svg>
+				<span class="menu-label">TV Guide</span>
 			</button>
-			<div class="rail-spacer"></div>
-			<button class="rail-icon" id="navSettings" tabindex="-1"
-				title="Settings">
-				<svg viewBox="0 0 24 24" width="28" height="28">
-					<path fill="currentColor"
-						d="M19.4 13a7.6 7.6 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7.6 7.6 0 0 0-1.7-1L15 3h-4l-.3 2.9a7.6 7.6 0 0 0-1.7 1l-2.4-1-2 3.4L6.6 11a7.6 7.6 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7.6 7.6 0 0 0 1.7 1L11 21h4l.3-2.9a7.6 7.6 0 0 0 1.7-1l2.4 1 2-3.4z M12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" /></svg>
+			<button class="menu-item" id="navFavorites" tabindex="-1">
+				<svg class="menu-icon" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+					<path d="M12 3.4 L14.29 9.44 L20.75 9.76 L15.71 13.81 L17.41 20.04 L12 16.5 L6.59 20.04 L8.29 13.81 L3.25 9.76 L9.71 9.44Z" /></svg>
+				<span class="menu-label">Favorites</span><span class="menu-count" id="navFavoritesCount"></span>
 			</button>
+			<button class="menu-item" id="navSettings" tabindex="-1">
+				<svg class="menu-icon" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+					<path d="M10.37 5.19 L10.61 2.7 L13.39 2.7 L13.63 5.19 L15.66 6.03 L17.59 4.44 L19.56 6.41 L17.97 8.34 L18.81 10.37 L21.3 10.61 L21.3 13.39 L18.81 13.63 L17.97 15.66 L19.56 17.59 L17.59 19.56 L15.66 17.97 L13.63 18.81 L13.39 21.3 L10.61 21.3 L10.37 18.81 L8.34 17.97 L6.41 19.56 L4.44 17.59 L6.03 15.66 L5.19 13.63 L2.7 13.39 L2.7 10.61 L5.19 10.37 L6.03 8.34 L4.44 6.41 L6.41 4.44 L8.34 6.03Z M15.2 12a3.2 3.2 0 1 1-6.4 0 3.2 3.2 0 0 1 6.4 0Z" /></svg>
+				<span class="menu-label">Settings</span>
+			</button>
+			</div>
+			<!-- Live TV's own menu: takes the main menu's place (see setMenuMode in js/main.js). -->
+			<div class="menu-sub">
+				<button class="menu-item menu-back" id="navBack" tabindex="-1">
+					<span class="menu-back-arrow">&#8249;</span>
+					<svg class="menu-icon" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+					<path d="M5.5 7.5h13a2.5 2.5 0 0 1 2.5 2.5v7.5a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.500V10a2.5 2.5 0 0 1 2.5-2.5Z M8 3l4 4.5L16 3" /></svg>
+					<span class="menu-label">Live TV</span>
+				</button>
+				<button class="menu-item" id="navAll" tabindex="-1">
+					<span class="menu-label">All channels</span><span class="menu-count" id="navAllCount"></span>
+				</button>
+				<div class="menu-header" id="menuCategoriesHeader">Categories</div>
+				<div class="menu-scroll" id="menuCategories"></div>
+			</div>
 		</nav>
 
 		<div class="main-area">
 
-			<!-- ===================== Home Screen ===================== -->
-			<section id="screen-grid" class="screen">
-				<div class="hero" id="hero">
-					<div class="hero-bg" id="heroBg"></div>
-					<div class="hero-gradient"></div>
-					<div class="hero-content">
-						<div class="hero-badge">LIVE</div>
-						<h1 class="hero-title" id="heroTitle">&nbsp;</h1>
-						<p class="hero-subtitle" id="heroSubtitle">&nbsp;</p>
+			<!-- ===================== Live TV: channel list, preview, channel info ===================== -->
+			<section id="screen-live" class="screen">
+				<div class="live-channels">
+					<div class="live-head">
+						<h1 class="live-title" id="liveTitle">Live TV</h1>
+						<span class="live-count" id="liveCount"></span>
 					</div>
+					<div class="live-list" id="liveList"></div>
 				</div>
-
-				<section class="row">
-					<h2 class="row-title">Favorites</h2>
-					<div class="tile-row" id="favoritesRow"></div>
-				</section>
+				<!-- The channel plays behind the whole screen; this is its caption. -->
+				<div class="live-scrim"></div>
+				<div class="live-info">
+					<div class="live-badges"><span class="badge-live" id="liveInfoLive" hidden>LIVE</span><span class="badge-fav" id="liveInfoFav" hidden>&#9733; Favorite</span></div>
+					<div class="live-info-name"><span class="live-info-number" id="liveInfoNumber"></span><span id="liveInfoName"></span></div>
+					<div class="live-info-group" id="liveInfoGroup"></div>
+					<!-- What is on, from the programme guide (hidden when it has nothing). -->
+					<div class="live-prog" id="liveProg" hidden>
+						<div class="live-prog-now"><span class="live-prog-title" id="liveProgTitle"></span><span class="live-prog-time" id="liveProgTime"></span></div>
+						<div class="live-prog-bar" id="liveProgBar"><div class="live-prog-fill" id="liveProgFill"></div></div>
+						<div class="live-prog-desc" id="liveProgDesc"></div>
+						<div class="live-prog-next" id="liveProgNext"></div>
+					</div>
+					<div class="live-status" id="liveStatus"></div>
+					<div class="live-keys">OK full screen &nbsp;&middot;&nbsp; &#9654; favorite &nbsp;&middot;&nbsp; &#9664; menu</div>
+				</div>
 			</section>
 
-			<!-- ===================== Categories browse screen ===================== -->
-			<section id="screen-categories" class="screen">
-				<h1 class="page-title">Categories</h1>
-				<div class="channel-grid" id="categoriesGrid"></div>
-			</section>
-
-			<!-- ===================== Channels within a category ===================== -->
-			<section id="screen-category-channels" class="screen">
-				<h1 class="page-title" id="categoryChannelsTitle">Channels</h1>
-				<div class="channel-grid" id="categoryChannelsGrid"></div>
+			<!-- ===================== TV Guide: channels down, time across ===================== -->
+			<section id="screen-guide" class="screen">
+				<div class="guide-panel">
+					<div class="guide-head">
+						<div class="guide-title">TV Guide</div>
+						<div class="guide-date" id="guideDate"></div>
+					</div>
+					<!-- The programme the remote is on. -->
+					<div class="guide-info">
+						<div class="guide-info-title" id="guideInfoTitle"></div>
+						<div class="guide-info-meta"><span class="badge-live" id="guideInfoLive" hidden>LIVE</span><span id="guideInfoMeta"></span></div>
+						<div class="guide-info-desc" id="guideInfoDesc"></div>
+					</div>
+					<div class="guide-ruler-row"><div class="guide-ch-space"></div><div class="guide-ruler" id="guideRuler"></div></div>
+					<div class="guide-rows" id="guideRows"></div>
+					<div class="guide-keys">OK watch &nbsp;&middot;&nbsp; &#9664; &#9654; programmes &nbsp;&middot;&nbsp; &#9650; &#9660; channels &nbsp;&middot;&nbsp; Back menu</div>
+				</div>
 			</section>
 
 			<!-- ===================== Settings Screen ===================== -->
 			<section id="screen-settings" class="screen">
-				<h1 class="page-title">Playlists</h1>
-				<p class="settings-hint">Select a playlist to activate or
-					deactivate it &mdash; multiple can be active at once. Use the
-					buttons next to it to edit or delete.</p>
-				<div class="playlist-list" id="playlistList"></div>
-				<p class="app-version" id="appVersion"></p>
+				<!-- Sections on the left, the chosen section's rows on the right. -->
+				<div class="settings-cats">
+					<div class="settings-title">Settings</div>
+					<div id="settingsCats"></div>
+				</div>
+				<div class="settings-main">
+					<div class="settings-section-title" id="settingsSectionTitle"></div>
+					<div class="settings-rows" id="settingsRows"></div>
+					<div class="settings-hint" id="settingsHint"></div>
+				</div>
 			</section>
 
 			<!-- ===================== Add / Edit Playlist Screen ===================== -->
@@ -144,6 +185,16 @@ window.onerror = function (msg, file, line) {
 			<p>Loading playlist&hellip;</p>
 		</div>
 		<div class="toast" id="toast"></div>
+
+		<!-- A downloaded update asks here, in the corner, whether to restart into it. -->
+		<div class="notice" id="updateNotice" hidden>
+			<div class="notice-title">Update available</div>
+			<div class="notice-text" id="updateNoticeText"></div>
+			<div class="notice-actions">
+				<button class="notice-btn" id="updateLaterBtn" tabindex="-1">Later</button>
+				<button class="notice-btn" id="updateNowBtn" tabindex="-1">Update now</button>
+			</div>
+		</div>
 
 		<!-- ===================== Confirm Dialog ===================== -->
 		<div class="modal-overlay" id="confirmModal" hidden>

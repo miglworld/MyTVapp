@@ -5,21 +5,53 @@ An IPTV player for Samsung Smart TVs (Tizen). It plays live channels from M3U/M3
 - **Download:** the `.wgt` attached to the [latest release](https://github.com/miglworld/MyTvApp/releases/latest) (unsigned, see [Installing](#installing))
 - **Changes:** [CHANGELOG.md](CHANGELOG.md)
 - **Security:** [SECURITY.md](SECURITY.md)
+- **Why it is built this way:** [docs/decisions.md](docs/decisions.md)
 
 ## Features
 
 - **Multiple playlists, several active at once.** Add any number of M3U/M3U8 playlist URLs in Settings and switch each one on or off. Categories from different playlists stay separate, under a header per playlist.
 - **One-press iptv-org presets.** Settings offers **+ Add IPTV-ORG Portugal** and **+ Add IPTV-ORG All Countries**, fetched live from `iptv-org.github.io`. No playlist is bundled in the package.
-- **Categories and channel grids.** Channels are grouped by `group-title` into an alphabetical two-column list, then a channel grid per category.
+- **Live TV screen.** The channel you rest on plays behind the whole screen. Over it float a side menu (Live TV, Favorites, Settings; Live TV opens its own menu with All channels and every category of your playlists) and a numbered channel list, with the channel's name, group and stream status as a caption. OK hides the panels for full screen, without restarting the stream; Back brings them back.
+- **TV Guide.** A menu entry opens a grid of the channels that have a guide: time across, a line for the present, and the highlighted programme's title, times and description at the top. OK on a programme that is on plays the channel.
+- **Programme guide (now and next).** For channels the guide covers, the list shows what is on, and the caption adds the times, how far along it is, a short description and what follows. See [Programme guide](#programme-guide) for where the data comes from.
+- **Playlist player options.** Some playlists give a channel the browser identity (user agent) its server expects (`#EXTVLCOPT:http-user-agent=...` or a `user-agent` attribute). The Samsung player uses it for that channel; a Settings switch turns this off. The other players cannot change their identity, and a `http-referrer` option cannot be sent at all.
+- **Unreliable channels stand back.** Channels a playlist marks as "[Geo-blocked]" or "[Not 24/7]" are shown darker (Settings can hide them, or show them as normal). A channel that did not play on your TV is remembered and shown darker with a note until it plays again.
 - **Favorites.** Star a channel while watching it. Favorites are kept when a playlist is switched off (they are only hidden) and removed when the playlist is deleted.
 - **Remote-control navigation.** D-pad, OK and Back everywhere, plus channel up/down, number keys, previous channel and play/pause.
-- **Three players with automatic fallback.** In the installed app, Samsung's own player (**AVPlay**) is tried first: it opens streams itself (no CORS limits) and decodes HLS natively. Then the browser's `<video>` element, then [hls.js](https://github.com/video-dev/hls.js/) (bundled, v1.6.19). If a player fails or shows no video within 12 s, the next one is tried. A status line shows the player in use, the stream's resolution and bitrate, and every player's error if a channel fails.
-- **Picture tuning (optional, off by default).** A switch at the bottom of Settings. On: the Samsung player starts adaptive streams at their highest quality and keeps the stream's own picture shape. Turn it off if the picture stays black.
+- **Three players with automatic fallback.** In the installed app, Samsung's own player (**AVPlay**) is tried first: it opens streams itself (no CORS limits) and decodes HLS natively. Then the browser's `<video>` element, then [hls.js](https://github.com/video-dev/hls.js/) (bundled, v1.6.19). If a player fails or shows no video within 12 s, the next one is tried. The status line shows the stream's resolution and bitrate; which player was used, and each player's error when a channel fails, are in the diagnostics list (Settings, About).
+- **Faster channel start (on by default).** A switch in Settings: the Samsung player shows the picture after 2 seconds of buffer instead of its longer default. Turn it off if channels stutter.
+- **Picture tuning (optional, off by default).** A switch in Settings, under Playback. On: the Samsung player starts adaptive streams at their highest quality and keeps the stream's own picture shape. Turn it off if the picture stays black.
 - **Remembers playlists.** Each playlist is stored on the TV, so channels appear at once when the app opens. A stored copy older than 6 hours is downloaded again in the background; "Reload playlists now" in Settings does it on demand.
+- **Settings in sections.** Playlists, Playback, Channels, Updates and About on the left; switches, values and actions on the right, each explained in a sentence when the remote is on it.
 - **Updates itself.** The installed app checks GitHub after it starts and downloads newer versions; a version that fails to start is discarded (see [How updates work](#how-updates-work)).
 - **System keyboard.** The playlist URL field opens Samsung's keyboard, so you can also type from your phone with the SmartThings app.
 
-## Remote keys while watching
+## Remote keys
+
+**Live TV screen**
+
+| Key | Action |
+|---|---|
+| Up / Down | Move through the menu or the channel list |
+| Right, OK on Live TV | Open Live TV's menu: All channels and the categories |
+| Left, Back (in Live TV's menu) | Back to the main menu |
+| Right, OK (on All channels, a category, Favorites) | Go into the channel list |
+| Left, Back (in the list) | Open the menu (it folds into a small capsule while you are in the list) |
+| OK (in the list) | Full screen |
+| Right (in the list) | Add or remove the favorite |
+| CH+ / CH- | Page through the list |
+| Back (in the main menu) | Exit the app (asks first) |
+
+**TV Guide**
+
+| Key | Action |
+|---|---|
+| Left / Right | Previous / next programme of the channel (the grid moves on in time) |
+| Up / Down, CH+ / CH- | Other channels, at the same time of day |
+| OK | Play the channel, when the programme is on now |
+| Back, Left at the start | Open the menu |
+
+**Full screen**
 
 | Key | Action |
 |---|---|
@@ -29,9 +61,9 @@ An IPTV player for Samsung Smart TVs (Tizen). It plays live channels from M3U/M3
 | Right, INFO | Info bar with the Favorite button (OK toggles it) |
 | 0-9 | Jump to a channel number (after 2 s, or press OK) |
 | Play/Pause | Pause or resume |
-| Back | Close the panel/info bar, then leave the player (back to the channel grid you came from) |
+| Back | Close the panel/info bar, then back to the Live TV screen |
 
-In the channel list: Up/Down move, CH+/CH- page, OK plays, Back closes. On startup the app reopens the last channel you watched.
+In the channel list over the video: Up/Down move, CH+/CH- page, OK plays, Back closes. On startup the list is on the last channel you watched.
 
 ## Installing
 
@@ -63,11 +95,12 @@ Module files come through the jsDelivr CDN, which caches branch files for up to 
 Install the package once. After that the app updates itself from GitHub.
 
 - The package always starts from its own files (`index.html`, `js/boot.js`).
-- A few seconds after the start, the app checks GitHub Pages (`https://miglworld.github.io/MyTvApp/`, served from `main`) for a newer version. If there is one, it downloads the app's page, stylesheet and script and keeps them in the TV's storage.
-- If nobody is using the app yet, it restarts into the new version right away. Otherwise the new version runs from the next start.
-- **An update that does not start is thrown away** and never tried again; the package's own version runs instead. The worst case is one failed start.
+- A few seconds after the start, the app asks GitHub which commit the `main` branch points at and reads the version there. If it is newer, it downloads the app's page, stylesheet and script **from that one commit** and keeps them in the TV's storage. (Files fetched by branch name can be minutes out of step with each other; a commit cannot.)
+- Before storing an update, the app checks that the script is the announced version and that every part of the page it uses is in the downloaded page.
+- When an update has been downloaded, a small notice in the top right corner offers **Update now** (the app restarts into it) or **Later** (it is installed the next time the app starts). The notice waits while a channel is full screen.
+- **An update that does not start is thrown away** and not downloaded again by itself; the package's own version runs instead. The worst case is one failed start. "Check for updates now" in Settings may try that version once more.
 - Settings shows the version and where it runs from (installed package or downloaded update), and has an **Automatic updates** switch. Off also removes a downloaded update.
-- The bottom of Settings lists the last events (start, playlists, player, updates, errors). The list survives a restart.
+- Settings, under About, lists the last events (start, playlists, player, updates, errors). The list survives a restart.
 - The screen says "Starting MyTvApp…" until the app runs. If the app script fails, the error is shown in a red box at the bottom of the screen.
 
 ### Developer mode
@@ -75,7 +108,6 @@ Install the package once. After that the app updates itself from GitHub.
 **Developer mode** (a switch in Settings, off by default) makes the TV follow the repo's `dev` branch instead of `main`, so a test version can be tried on the TV before it is merged.
 
 - With it on, the TV takes whatever version the `dev` branch holds, as long as it differs from the one running and is newer than the installed package. "Check for updates now" fetches it without restarting the app by hand.
-- GitHub serves branch files with a delay of up to about five minutes after a push.
 - A test version that does not start is discarded like any other update.
 - Turning it off forgets the test version: the next start runs the installed package's version, which then updates to the released one.
 
@@ -119,7 +151,7 @@ They verify that the scripts parse, that the version is the same in all four pla
 1. Bump the version in **four places**, to the same value: `package.json`, `config.xml`, `APP_VERSION` in `js/main.js`, and `BUNDLED_VERSION` in `js/boot.js`.
 2. Add a line to [CHANGELOG.md](CHANGELOG.md).
 3. Optional: try it on the TV first. Push the work to the `dev` branch (`git push origin HEAD:dev --force-with-lease`), and on a TV with Developer mode on choose "Check for updates now".
-4. Open a pull request, wait for the check, and merge into `main`. GitHub Pages publishes it and installed TVs update themselves on the next start. Afterwards bring `dev` level with `main` again.
+4. Open a pull request, wait for the check, and merge into `main`. Installed TVs update themselves on the next start. Afterwards bring `dev` level with `main` again.
 5. For a new package (first installs, or a change to `config.xml`, `js/boot.js` or `lib/hls.min.js`), build it and attach it to a GitHub release:
 
 ```bash

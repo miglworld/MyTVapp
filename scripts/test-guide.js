@@ -32,6 +32,22 @@ test('XMLTV times, with and without an offset', function () {
     assert.ok(isNaN(guide.parseXmltvTime('soon')));
 });
 
+test('sources: HTTPS on an allowed host, nothing else', function () {
+    assert.strictEqual(guide.sourceUrl('https://iptv-epg.org/files/epg-pt.xml'), 'https://iptv-epg.org/files/epg-pt.xml');
+    assert.strictEqual(guide.sourceUrl('https://iptv-org.github.io/iptv/countries/pt.m3u?x=1'), 'https://iptv-org.github.io/iptv/countries/pt.m3u?x=1');
+    assert.throws(function () { guide.sourceUrl('http://iptv-epg.org/files/epg-pt.xml'); }, /HTTPS/);
+    assert.throws(function () { guide.sourceUrl('https://example.com/guide.xml'); }, /not allowed/);
+    assert.throws(function () { guide.sourceUrl('https://iptv-epg.org.example.com/x'); }, /not allowed/);
+    assert.throws(function () { guide.sourceUrl('https://user:pw@iptv-epg.org/x'); }, /login/);
+    assert.throws(function () { guide.sourceUrl('file:///etc/passwd'); }, /HTTPS/);
+    assert.throws(function () { guide.sourceUrl('guide.xml'); }, /not an address/);
+});
+
+test('every source in guide/config.json is allowed', function () {
+    var config = require('../guide/config.json');
+    config.playlists.concat(config.feeds).forEach(function (u) { guide.sourceUrl(u); });
+});
+
 var XML = [
     '<tv>',
     '<channel id="RTP1.pt"><display-name>RTP 1</display-name></channel>',

@@ -166,6 +166,7 @@ gh release create v<version> MyTvApp.wgt --title "MyTvApp <version>"
 The TV does not read a full programme guide itself: one country's guide is tens of MB. Instead a job in this repository (`.github/workflows/guide.yml`, every four hours) runs `scripts/build-guide.js`, which downloads the guide feeds listed in `guide/config.json`, keeps only the channels of the playlists listed there and the next 48 hours, and publishes the result (about 300 KB) as `guide.json` on the `guide` branch.
 
 - `guide/config.json`: `playlists` (whose channels to keep), `feeds` (XMLTV guide files), `hours`.
+- The job only downloads HTTPS addresses on the hosts listed in `ALLOWED_HOSTS` in `scripts/build-guide.js`. A feed on a new server means adding its host there.
 - Channels are matched by the playlist's `tvg-id` without its `@...` ending, in lower case.
 - The guide data comes from a third-party feed (iptv-epg.org at present) and is republished here in trimmed form. A channel the feed does not cover has no guide.
 - To build it by hand: `node scripts/build-guide.js out/guide.json`. To run the job now: `gh workflow run guide.yml`.

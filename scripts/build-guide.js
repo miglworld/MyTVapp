@@ -18,6 +18,14 @@
 'use strict';
 var fs = require('fs');
 var path = require('path');
+// Which playlists and feeds to use. Loaded as part of the program, and every
+// address in it is checked against ALLOWED_HOSTS below before it is fetched.
+var config = require('../guide/config.json');
+
+// The only servers this job downloads from. guide/config.json chooses among
+// them; it cannot send the job anywhere else. A feed on a new server means
+// adding its host here, in code that is reviewed.
+var ALLOWED_HOSTS = ['iptv-org.github.io', 'iptv-epg.org'];
 
 var DESCRIPTION_MAX = 200;
 var PAST_HOURS = 3;   // keep what started a little while ago: it may still be on
@@ -109,8 +117,21 @@ function tidy(channels) {
     return channels;
 }
 
-function download(url) {
-    return fetch(url, { redirect: 'follow' }).then(function (res) {
+// The address to fetch for a configured source: HTTPS, on an allowed host,
+// rebuilt from its parsed parts. Throws for anything else.
+function sourceUrl(text) {
+    var url;
+    try { url = new URL(String(text)); } catch (e) { throw new Error('not an address: ' + text); }
+    if (url.protocol !== 'https:') throw new Error('not an HTTPS address: ' + text);
+    if (ALLOWED_HOSTS.indexOf(url.hostname) === -1) throw new Error('host not allowed: ' + url.hostname);
+    if (url.username || url.password) throw new Error('address must not carry a login: ' + url.hostname);
+    return 'https://' + url.hostname + url.pathname + url.search;
+}
+
+// Plain GET of a public file: no credentials or headers of this job go with it.
+function download(source) {
+    var url = sourceUrl(source);
+    return fetch(url, { redirect: 'follow', credentials: 'omit' }).then(function (res) {
         if (!res.ok) throw new Error('HTTP ' + res.status + ' for ' + url);
         return res.text();
     });
@@ -118,7 +139,6 @@ function download(url) {
 
 function main() {
     var out = process.argv[2] || 'guide.json';
-    var config = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'guide', 'config.json'), 'utf8'));
     var hours = config.hours || 48;
     var now = Math.floor(Date.now() / 1000);
     var wanted = {};
@@ -148,7 +168,7 @@ function main() {
     });
 }
 
-module.exports = { channelKey: channelKey, playlistKeys: playlistKeys, parseXmltvTime: parseXmltvTime, addProgrammes: addProgrammes, tidy: tidy };
+module.exports = { sourceUrl: sourceUrl, channelKey: channelKey, playlistKeys: playlistKeys, parseXmltvTime: parseXmltvTime, addProgrammes: addProgrammes, tidy: tidy };
 
 if (require.main === module) {
     main().catch(function (err) { console.error('guide not built: ' + err.message); process.exit(1); });

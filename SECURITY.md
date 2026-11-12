@@ -93,6 +93,7 @@ sequenceDiagram
 ```
 
 **Package**
+- The guide job (`scripts/build-guide.js`) downloads only HTTPS addresses on hosts named in the script itself, and sends nothing of its own with the request. `guide/config.json` can choose among those hosts, not add one.
 - `lib/hls.min.js` is the official hls.js 1.6.19 build; `scripts/check.sh` verifies its SHA-256.
 - The package is unsigned in the release and signed on installation with your own Samsung certificate. Only install packages from this repository's releases.
 

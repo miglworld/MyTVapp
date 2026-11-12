@@ -10,7 +10,7 @@
 // and the package's own version runs. The worst case is one failed start.
 (function () {
     'use strict';
-    var BUNDLED_VERSION = '0.12.0';
+    var BUNDLED_VERSION = '0.12.1';
 
     var UPDATE_KEY = 'mytvapp_update';           // { version, js, css, html }
     var PENDING_KEY = 'mytvapp_update_pending';  // set while an update is being started

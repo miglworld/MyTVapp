@@ -2,6 +2,10 @@
 
 MyTvApp's own history starts at v0.1. Newest first. Each entry also names the version number the app showed at the time.
 
+## v0.12.1 (2026-11-12)
+- The shade behind the Live TV caption now reaches the left edge of the picture; it used to stop where the menu ends, leaving a visible seam.
+- Repository: the guide job only downloads HTTPS sources on allowed hosts; new README with screenshots, and the script that takes them.
+
 ## v0.12.0 (2026-11-12)
 *Tested on the `dev` branch as 0.11.0 to 0.11.14.*
 - New Live TV screen in place of the home, categories and channel grid screens: the channel plays behind the whole screen, with a floating side menu (every category) and a floating numbered channel list over it, and the channel's caption at the bottom.

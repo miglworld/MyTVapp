@@ -53,6 +53,24 @@ button {
 	color: #000000 !important;
 }
 
+/* The focus pill arrives quickly and settles: colour and lift ease out over
+   a sixth of a second. Only on controls that stay on screen (lists are
+   rebuilt on every key press, so there is nothing to animate there). */
+.menu-item,
+.setting-row,
+.notice-btn,
+.btn,
+.favorite-btn {
+	transition: background-color 0.16s ease-out, color 0.16s ease-out, transform 0.16s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	* {
+		transition: none !important;
+		animation: none !important;
+	}
+}
+
 /* ==========================================================================
    Side menu: a floating rounded panel.
    ========================================================================== */
@@ -116,8 +134,8 @@ button {
 .menu-count {
 	flex-shrink: 0;
 	margin-left: 10px;
-	font-size: 16px;
-	color: #636366;
+	font-size: 18px;
+	color: #8e8e93;
 }
 
 /* The section that is showing, while the remote is elsewhere. */
@@ -215,6 +233,8 @@ button {
 .live-channels,
 .guide-panel,
 .notice,
+.settings-cats,
+.settings-main,
 .channel-panel,
 .modal-box,
 .toast,
@@ -337,11 +357,6 @@ html.avplay-active .favorite-btn {
 	display: block;
 }
 
-#screen-settings {
-	overflow-y: auto;
-	padding: 56px 72px;
-}
-
 .page-title {
 	font-size: 44px;
 	font-weight: 700;
@@ -395,8 +410,8 @@ html.avplay-active .favorite-btn {
 .live-count {
 	flex-shrink: 0;
 	margin-left: 14px;
-	font-size: 17px;
-	color: #636366;
+	font-size: 19px;
+	color: #8e8e93;
 }
 
 .live-list {
@@ -421,8 +436,8 @@ html.avplay-active .favorite-btn {
 .live-row .live-num {
 	width: 60px;
 	flex-shrink: 0;
-	font-size: 18px;
-	color: #636366;
+	font-size: 19px;
+	color: #8e8e93;
 }
 
 .live-row .live-logo {
@@ -455,8 +470,8 @@ html.avplay-active .favorite-btn {
 
 .live-row .live-sub {
 	margin-top: 3px;
-	font-size: 16px;
-	color: #8e8e93;
+	font-size: 18px;
+	color: #aeaeb2;
 }
 
 .focused .live-sub {
@@ -484,7 +499,7 @@ html.avplay-active .favorite-btn {
 /* Darker: a channel the playlist marks as unreliable, or one that did not
    play the last time it was tried. */
 .live-row.dim .live-name {
-	color: #6e6e73;
+	color: #8e8e93;
 }
 
 .live-row.dim .live-logo {
@@ -652,13 +667,13 @@ html.avplay-active .favorite-btn {
 	min-height: 26px;
 	margin-top: 14px;
 	font-size: 20px;
-	color: #8e8e93;
+	color: #aeaeb2;
 }
 
 .live-keys {
 	margin-top: 18px;
-	font-size: 18px;
-	color: rgba(255, 255, 255, 0.35);
+	font-size: 19px;
+	color: rgba(255, 255, 255, 0.6);
 }
 
 .loading-indicator {
@@ -781,7 +796,7 @@ html.avplay-active .favorite-btn {
 	max-height: 58px;
 	font-size: 20px;
 	line-height: 29px;
-	color: #8e8e93;
+	color: #aeaeb2;
 	overflow: hidden;
 }
 
@@ -889,7 +904,7 @@ html.avplay-active .favorite-btn {
 
 .guide-cell.empty {
 	background: none;
-	color: #636366;
+	color: #8e8e93;
 }
 
 .guide-cell.focused {
@@ -910,152 +925,246 @@ html.avplay-active .favorite-btn {
 .guide-keys {
 	flex-shrink: 0;
 	padding: 8px 8px 0;
-	font-size: 18px;
-	color: #636366;
+	font-size: 19px;
+	color: #8e8e93;
 }
 
 /* ==========================================================================
-   Settings screen — playlist management
+   Settings screen: two glass panels. Sections on the left, the chosen
+   section's rows on the right, and under them a sentence about the row the
+   remote is on. Rows share one shape: label on the left, then a value, a
+   switch or an arrow on the right.
    ========================================================================== */
-.app-version {
-	font-size: 18px;
-	color: #636366;
-	margin-top: 36px;
-}
-
-.settings-hint {
-	font-size: 20px;
-	color: #8e8e93;
-	margin-bottom: 32px;
-	margin-top: -20px;
-}
-
-.playlist-list {
-	max-width: 1300px;
-}
-
-.playlist-row-wrapper {
+#screen-settings.active {
 	display: flex;
-	align-items: stretch;
-	margin-bottom: 16px;
+	padding: 28px 28px 28px 20px;
 }
 
-.playlist-row {
-	flex: 1;
+.settings-cats,
+.settings-main {
+	border-radius: 38px;
 	display: flex;
-	align-items: center;
-	text-align: left;
-	background: #161618;
-	border: 1px solid transparent;
-	border-radius: 20px;
-	padding: 20px 24px;
+	flex-direction: column;
 }
 
-.playlist-row.active {
-	border-color: #48484a;
-}
-
-.playlist-checkbox {
+.settings-cats {
+	width: 400px;
 	flex-shrink: 0;
-	width: 28px;
-	height: 28px;
-	margin-right: 20px;
-	border: 2px solid #48484a;
-	border-radius: 6px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	font-size: 18px;
-	line-height: 1;
-	color: #ffffff;
+	padding: 26px 16px 18px;
 }
 
-.playlist-checkbox.checked {
-	background: #f5f5f7;
-	border-color: #f5f5f7;
-	color: #000000;
+.settings-title,
+.settings-section-title {
+	flex-shrink: 0;
+	font-size: 32px;
+	font-weight: 700;
+	color: #f5f5f7;
 }
 
-.focused .playlist-checkbox {
-	border-color: #000000;
+.settings-title {
+	padding: 4px 16px 22px;
 }
 
-.focused .playlist-checkbox.checked {
-	background: #000000;
-	border-color: #000000;
-	color: #ffffff !important;
-}
-
-.playlist-row-text {
+.settings-main {
 	flex: 1;
 	min-width: 0;
+	margin-left: 20px;
+	padding: 30px 30px 22px;
 }
 
-.playlist-name {
-	font-size: 22px;
+.settings-section-title {
+	padding: 0 8px 18px;
+}
+
+.settings-rows {
+	flex: 1;
+	min-height: 0;
+	overflow: hidden;
+	padding: 4px 6px;
+}
+
+/* The sentence about the focused row. Fixed height, so rows do not jump. */
+.settings-hint {
+	flex-shrink: 0;
+	height: 76px;
+	margin-top: 14px;
+	padding: 14px 8px 0;
+	border-top: 1px solid rgba(255, 255, 255, 0.12);
+	font-size: 21px;
+	line-height: 30px;
+	color: #aeaeb2;
+	overflow: hidden;
+}
+
+.setting-group {
+	padding: 18px 10px 10px;
+	font-size: 19px;
 	font-weight: 600;
-	margin-bottom: 4px;
-}
-
-.playlist-url {
-	font-size: 16px;
 	color: #8e8e93;
-	word-break: break-all;
 }
 
-.playlist-row.add-row {
-	color: #f5f5f7;
-	font-size: 20px;
-	text-align: center;
+.setting-group:first-child {
+	padding-top: 2px;
+}
+
+.setting-line {
+	display: flex;
+	margin-bottom: 8px;
+}
+
+.setting-row {
 	display: flex;
 	align-items: center;
-	justify-content: center;
-	width: 100%;
-	margin-bottom: 16px;
-}
-
-.playlist-action-btn {
-	flex-shrink: 0;
-	width: 100px;
-	margin-left: 16px;
-	background: #161618;
-	border: 1px solid transparent;
-	border-radius: 20px;
-	font-size: 18px;
+	flex: 1;
+	min-width: 0;
+	min-height: 72px;
+	padding: 0 22px;
+	border-radius: 24px;
+	background: rgba(255, 255, 255, 0.07);
+	font-size: 23px;
+	text-align: left;
 	color: #f5f5f7;
 }
 
-.playlist-row.option-row {
+.setting-label {
+	flex: 1;
+	min-width: 0;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.setting-value {
+	flex-shrink: 0;
+	margin-left: 18px;
+	font-size: 21px;
+	color: #aeaeb2;
+}
+
+.setting-arrow {
+	flex-shrink: 0;
+	margin-left: 14px;
+	font-size: 28px;
+	line-height: 1;
+	color: #8e8e93;
+}
+
+/* A fact, not a control: no plate behind it. */
+.setting-info {
+	display: flex;
+	align-items: center;
+	min-height: 56px;
+	padding: 0 22px;
+	font-size: 22px;
 	color: #c7c7cc;
-	margin-top: 32px;
 }
 
-.playlist-row.option-row.second {
-	margin-top: 0;
+.setting-info .setting-value {
+	color: #f5f5f7;
 }
 
-.playlist-row.log-row {
+/* Switch: a capsule with a round knob; green and knob to the right when on. */
+.switch {
+	position: relative;
+	flex-shrink: 0;
+	width: 62px;
+	height: 36px;
+	margin-left: 18px;
+	border-radius: 18px;
+	background: rgba(255, 255, 255, 0.22);
+}
+
+.switch span {
+	position: absolute;
+	top: 3px;
+	left: 3px;
+	width: 30px;
+	height: 30px;
+	border-radius: 50%;
+	background: #ffffff;
+	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.switch.on {
+	background: #30d158;
+}
+
+.switch.on span {
+	left: 29px;
+}
+
+.focused .switch {
+	background: #b9b9be;
+}
+
+.focused .switch.on {
+	background: #30d158;
+}
+
+/* A playlist: name over its address. */
+.setting-playlist {
+	min-height: 88px;
+}
+
+.setting-playlist .playlist-name,
+.setting-playlist .playlist-url {
 	display: block;
-	text-align: left;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.setting-playlist .playlist-name {
+	font-size: 23px;
+	font-weight: 600;
+}
+
+.setting-playlist .playlist-url {
+	margin-top: 4px;
+	font-size: 18px;
+	color: #8e8e93;
+}
+
+/* Edit and Delete, beside a playlist. */
+.setting-side {
+	flex: 0 0 132px;
+	justify-content: center;
+	margin-left: 10px;
+	padding: 0;
+	font-size: 21px;
+}
+
+.setting-side.delete {
+	color: #ff6961;
+}
+
+/* The diagnostics list: a page of small text. */
+.setting-log {
+	display: block;
+	padding: 18px 22px;
 	white-space: pre-wrap;
 	word-break: break-all;
 	font-family: monospace;
-	font-size: 17px;
-	line-height: 1.45;
-	color: #8e8e93;
-	margin-top: 32px;
+	font-size: 18px;
+	line-height: 1.5;
+	color: #aeaeb2;
 }
 
-/* A page of text does not turn white: an outline is enough. */
-.playlist-row.log-row.focused {
-	background: #161618 !important;
-	color: #c7c7cc !important;
+/* It does not turn white: an outline is enough. */
+.setting-log.focused {
+	background: rgba(255, 255, 255, 0.1) !important;
+	color: #f5f5f7 !important;
 	box-shadow: 0 0 0 2px #f5f5f7;
 	transform: none;
 }
 
-.playlist-action-btn.delete {
-	color: #ff453a;
+.setting-row.focused {
+	box-shadow: none;
+	transform: none;
+}
+
+.focused .playlist-url {
+	color: #48484a !important;
 }
 
 /* ==========================================================================
@@ -1346,8 +1455,8 @@ html.video-full .sidebar {
 	right: 72px;
 	bottom: 40px;
 	text-align: left;
-	font-size: 18px;
-	color: rgba(255, 255, 255, 0.4);
+	font-size: 19px;
+	color: rgba(255, 255, 255, 0.65);
 	opacity: 0;
 	transition: opacity 0.3s;
 	pointer-events: none;

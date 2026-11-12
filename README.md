@@ -17,10 +17,11 @@ An IPTV player for Samsung Smart TVs (Tizen). It plays live channels from M3U/M3
 - **Unreliable channels stand back.** Channels a playlist marks as "[Geo-blocked]" or "[Not 24/7]" are shown darker (Settings can hide them, or show them as normal). A channel that did not play on your TV is remembered and shown darker with a note until it plays again.
 - **Favorites.** Star a channel while watching it. Favorites are kept when a playlist is switched off (they are only hidden) and removed when the playlist is deleted.
 - **Remote-control navigation.** D-pad, OK and Back everywhere, plus channel up/down, number keys, previous channel and play/pause.
-- **Three players with automatic fallback.** In the installed app, Samsung's own player (**AVPlay**) is tried first: it opens streams itself (no CORS limits) and decodes HLS natively. Then the browser's `<video>` element, then [hls.js](https://github.com/video-dev/hls.js/) (bundled, v1.6.19). If a player fails or shows no video within 12 s, the next one is tried. The status line shows the stream's resolution and bitrate; which player was used, and each player's error when a channel fails, are in the diagnostics list in Settings.
+- **Three players with automatic fallback.** In the installed app, Samsung's own player (**AVPlay**) is tried first: it opens streams itself (no CORS limits) and decodes HLS natively. Then the browser's `<video>` element, then [hls.js](https://github.com/video-dev/hls.js/) (bundled, v1.6.19). If a player fails or shows no video within 12 s, the next one is tried. The status line shows the stream's resolution and bitrate; which player was used, and each player's error when a channel fails, are in the diagnostics list (Settings, About).
 - **Faster channel start (on by default).** A switch in Settings: the Samsung player shows the picture after 2 seconds of buffer instead of its longer default. Turn it off if channels stutter.
-- **Picture tuning (optional, off by default).** A switch at the bottom of Settings. On: the Samsung player starts adaptive streams at their highest quality and keeps the stream's own picture shape. Turn it off if the picture stays black.
+- **Picture tuning (optional, off by default).** A switch in Settings, under Playback. On: the Samsung player starts adaptive streams at their highest quality and keeps the stream's own picture shape. Turn it off if the picture stays black.
 - **Remembers playlists.** Each playlist is stored on the TV, so channels appear at once when the app opens. A stored copy older than 6 hours is downloaded again in the background; "Reload playlists now" in Settings does it on demand.
+- **Settings in sections.** Playlists, Playback, Channels, Updates and About on the left; switches, values and actions on the right, each explained in a sentence when the remote is on it.
 - **Updates itself.** The installed app checks GitHub after it starts and downloads newer versions; a version that fails to start is discarded (see [How updates work](#how-updates-work)).
 - **System keyboard.** The playlist URL field opens Samsung's keyboard, so you can also type from your phone with the SmartThings app.
 
@@ -98,7 +99,7 @@ Install the package once. After that the app updates itself from GitHub.
 - When an update has been downloaded, a small notice in the top right corner offers **Update now** (the app restarts into it) or **Later** (it is installed the next time the app starts). The notice waits while a channel is full screen.
 - **An update that does not start is thrown away** and not downloaded again by itself; the package's own version runs instead. The worst case is one failed start. "Check for updates now" in Settings may try that version once more.
 - Settings shows the version and where it runs from (installed package or downloaded update), and has an **Automatic updates** switch. Off also removes a downloaded update.
-- The bottom of Settings lists the last events (start, playlists, player, updates, errors). The list survives a restart.
+- Settings, under About, lists the last events (start, playlists, player, updates, errors). The list survives a restart.
 - The screen says "Starting MyTvApp…" until the app runs. If the app script fails, the error is shown in a red box at the bottom of the screen.
 
 ### Developer mode

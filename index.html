@@ -123,12 +123,16 @@ window.onerror = function (msg, file, line) {
 
 			<!-- ===================== Settings Screen ===================== -->
 			<section id="screen-settings" class="screen">
-				<h1 class="page-title">Playlists</h1>
-				<p class="settings-hint">Select a playlist to activate or
-					deactivate it &mdash; multiple can be active at once. Use the
-					buttons next to it to edit or delete.</p>
-				<div class="playlist-list" id="playlistList"></div>
-				<p class="app-version" id="appVersion"></p>
+				<!-- Sections on the left, the chosen section's rows on the right. -->
+				<div class="settings-cats">
+					<div class="settings-title">Settings</div>
+					<div id="settingsCats"></div>
+				</div>
+				<div class="settings-main">
+					<div class="settings-section-title" id="settingsSectionTitle"></div>
+					<div class="settings-rows" id="settingsRows"></div>
+					<div class="settings-hint" id="settingsHint"></div>
+				</div>
 			</section>
 
 			<!-- ===================== Add / Edit Playlist Screen ===================== -->

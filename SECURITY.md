@@ -14,6 +14,7 @@ Open an issue on this repository. If it should not be public, use GitHub's "Repo
 | This repository's `main` branch (through GitHub Pages) | Yes | The app downloads newer versions of itself from it and runs them. |
 | This repository's `dev` branch | Only with Developer mode on | Same as above, for test versions. |
 | Playlists (any URL you add) | **No** | Names, groups, logos and stream addresses are written by someone else. |
+| The programme guide (`guide.json` on this repository's `guide` branch) | As data only | It is built by this repository's own job, but from a third-party feed: titles and descriptions are written by someone else. |
 | Stream and logo servers | **No** | They see the TV's IP address and can send anything back. |
 
 ## The main risks

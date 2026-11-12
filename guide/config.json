@@ -1,0 +1,10 @@
+{
+  "comment": "What scripts/build-guide.js puts into the programme guide. playlists: the channels to keep (their tvg-id). feeds: XMLTV guide files to take the programmes from. hours: how far ahead to keep.",
+  "playlists": [
+    "https://iptv-org.github.io/iptv/countries/pt.m3u"
+  ],
+  "feeds": [
+    "https://iptv-epg.org/files/epg-pt.xml"
+  ],
+  "hours": 48
+}

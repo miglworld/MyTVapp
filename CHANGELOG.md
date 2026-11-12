@@ -10,6 +10,8 @@ MyTvApp's own history starts at v0.1. Newest first. Each entry also names the ve
 - The menu has two levels: Live TV, Favorites and Settings; Live TV opens its own menu (a "‹ Live TV" header, All channels, then the categories) in the same place.
 - The menu folds into a small capsule of icons while the remote is in the channel list or on another screen, and opens again with Left.
 - Lighter glass with a bright rim, larger curves, round menu and list items.
+- Channels a playlist marks as "[Geo-blocked]" or "[Not 24/7]" are shown darker; a Settings switch can hide them or show them as normal.
+- A channel that did not play is remembered, shown darker with "Did not play last time", until it plays again. Settings can forget them all.
 - TV Guide screen (new menu entry): the channels that have a guide down the left, time across, a line for the present, and the highlighted programme's details at the top. Left/Right move through a channel's programmes, Up/Down change channel, OK on a programme that is on plays the channel, and Back from full screen returns to the guide.
 - Programme guide, first part: channels the guide covers show what is on under their name in the list, and the caption shows the programme's title, times, progress, a short description and what is next. Full screen shows it in the info bar. The guide is the small file this repository builds every four hours.
 - New menu icons, drawn as one set: outlines of a TV, a star and a gear with the same line weight.

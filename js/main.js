@@ -21,13 +21,16 @@
     // ==========================================================================
     // Config / constants
     // ==========================================================================
-    var APP_VERSION = '0.11.9';
+    var APP_VERSION = '0.11.10';
     var PLAYLISTS_KEY = 'iptv_playlists';
     var ACTIVE_PLAYLISTS_KEY = 'iptv_active_playlist_id';
     var FAVORITES_KEY = 'iptv_favorites';
     var LAST_CHANNEL_KEY = 'iptv_last_channel';
     var PICTURE_TUNING_KEY = 'iptv_picture_tuning';
     var FAST_START_KEY = 'iptv_fast_start';
+    var TAGGED_MODE_KEY = 'iptv_tagged_channels';
+    var FAILED_KEY = 'iptv_failed_channels';
+    var FAILED_MAX = 300;
     var REOPEN_LAST_KEY = 'iptv_reopen_last';
     var REOPEN_PENDING_KEY = 'iptv_reopen_pending';
     var LOG_KEY = 'iptv_log';
@@ -172,6 +175,44 @@
     var fastStart = true;
     try { fastStart = localStorage.getItem(FAST_START_KEY) !== '0'; } catch (e) { fastStart = true; }
     var fastStartFailureLogged = false;
+
+    // Channels a playlist marks as "[Geo-blocked]" or "[Not 24/7]" often do
+    // not play. Settings switch: 'dim' (default) shows them darker, 'hide'
+    // leaves them out, 'show' treats them like any other.
+    var taggedMode = 'dim';
+    try { taggedMode = localStorage.getItem(TAGGED_MODE_KEY) || 'dim'; } catch (e) { taggedMode = 'dim'; }
+    if (taggedMode !== 'hide' && taggedMode !== 'show') taggedMode = 'dim';
+
+    function isTagged(ch) {
+        return /\[(geo-blocked|not 24\/7)\]/i.test(ch.name || '');
+    }
+
+    // Channels that did not play the last time they were tried on this TV,
+    // by address. Shown darker, with a note, until they play again.
+    var failedChannels = {};
+    var failedOrder = [];
+    try {
+        failedOrder = JSON.parse(localStorage.getItem(FAILED_KEY) || '[]') || [];
+        failedOrder.forEach(function (url) { failedChannels[url] = true; });
+    } catch (e) { failedChannels = {}; failedOrder = []; }
+
+    function saveFailed() {
+        try { localStorage.setItem(FAILED_KEY, JSON.stringify(failedOrder)); } catch (e) { /* non-fatal */ }
+    }
+
+    function markFailed(ch, failed) {
+        if (!ch || !!failedChannels[ch.url] === failed) return;
+        if (failed) {
+            failedChannels[ch.url] = true;
+            failedOrder.push(ch.url);
+            // Keep the list bounded: forget the oldest.
+            while (failedOrder.length > FAILED_MAX) delete failedChannels[failedOrder.shift()];
+        } else {
+            delete failedChannels[ch.url];
+            failedOrder = failedOrder.filter(function (url) { return url !== ch.url; });
+        }
+        saveFailed();
+    }
 
     // Reopen the last watched channel when the app starts. Off by default:
     // the app then always starts on its own screens, so a channel or player
@@ -958,8 +999,9 @@
     // number, logo (or first letter), name, a dot on the channel that is
     // playing and a star on a favorite.
     function buildChannelRow(ch, stateClasses) {
+        var failed = !!failedChannels[ch.url];
         var row = document.createElement('div');
-        row.className = 'live-row' + stateClasses;
+        row.className = 'live-row' + stateClasses + (failed || (taggedMode === 'dim' && isTagged(ch)) ? ' dim' : '');
 
         var num = document.createElement('span');
         num.className = 'live-num';
@@ -975,10 +1017,10 @@
         name.textContent = ch.name;
         text.appendChild(name);
         var on = nowNext(ch);
-        if (on && on.now) {
+        if (failed || (on && on.now)) {
             var sub = document.createElement('span');
             sub.className = 'live-sub';
-            sub.textContent = String(on.now[2]);
+            sub.textContent = failed ? 'Did not play last time' : String(on.now[2]);
             text.appendChild(sub);
         }
         row.appendChild(num);
@@ -1418,6 +1460,7 @@
             var list = state.channelsByPlaylist[pl.id];
             if (list && state.activePlaylistIds.indexOf(pl.id) !== -1) all = all.concat(list);
         });
+        if (taggedMode === 'hide') all = all.filter(function (ch) { return !isTagged(ch); });
         state.channels = all;
         // The section points at a category by position; positions change when
         // playlists do, so find the same category again afterwards.
@@ -1745,6 +1788,36 @@
             reloadRow.textContent = 'Reload playlists now';
             reloadRow.addEventListener('click', reloadAllPlaylists);
             list.appendChild(reloadRow);
+        }
+
+        var taggedRow = document.createElement('button');
+        taggedRow.className = 'playlist-row add-row option-row second';
+        taggedRow.tabIndex = -1;
+        taggedRow.textContent = 'Channels marked \u201cGeo-blocked\u201d or \u201cNot 24/7\u201d: ' +
+            (taggedMode === 'hide' ? 'Hidden' : (taggedMode === 'show' ? 'Shown as normal' : 'Dimmed'));
+        taggedRow.addEventListener('click', function () {
+            taggedMode = taggedMode === 'dim' ? 'hide' : (taggedMode === 'hide' ? 'show' : 'dim');
+            try { localStorage.setItem(TAGGED_MODE_KEY, taggedMode); } catch (e) { /* non-fatal */ }
+            rebuildChannels();
+            renderPlaylistList();
+            Focus.setZone('playlistList', Focus.row, 0);
+        });
+        list.appendChild(taggedRow);
+
+        if (failedOrder.length) {
+            var failedRow = document.createElement('button');
+            failedRow.className = 'playlist-row add-row option-row second';
+            failedRow.tabIndex = -1;
+            failedRow.textContent = 'Forget the ' + failedOrder.length + (failedOrder.length === 1 ? ' channel' : ' channels') + ' marked as not playing';
+            failedRow.addEventListener('click', function () {
+                failedChannels = {};
+                failedOrder = [];
+                saveFailed();
+                renderPlaylistList();
+                Focus.setZone('playlistList', Focus.row, 0);
+                showToast('Forgotten');
+            });
+            list.appendChild(failedRow);
         }
 
         // Diagnostics log (a row so that Down scrolls it into view). OK refreshes it.
@@ -2319,6 +2392,8 @@
             state.playFailed = true;
             // The reasons, player by player, are in the diagnostics list.
             clearReopenPending();
+            markFailed(ch, true);
+            if (!state.fullscreen) renderLiveList();
             logEvent('could not play "' + ch.name + '": ' + (state.playErrors.join(' | ') || 'no player available'));
             setPlayerStatus('Not available right now. The channel may be offline or blocked in your country.');
             unavailableToast();
@@ -2347,6 +2422,10 @@
         // The channel to start on next time is the last one watched full screen.
         // Channels the list only passes over are neither saved nor logged.
         if (state.watched) saveLastChannel(state.nowPlaying, state.zapContext);
+        if (failedChannels[state.nowPlaying.url]) {
+            markFailed(state.nowPlaying, false);
+            if (!state.fullscreen) renderLiveList();
+        }
         if (state.fullscreen) logEvent('playing "' + state.nowPlaying.name + '" (' + engineLabel(state.engine) + ')');
         setTimeout(clearReopenPending, 5000);
         setPlayerStatus(playingText());

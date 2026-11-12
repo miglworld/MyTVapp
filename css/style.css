@@ -478,6 +478,24 @@ html.avplay-active .favorite-btn {
 	font-size: 0;
 }
 
+/* Darker: a channel the playlist marks as unreliable, or one that did not
+   play the last time it was tried. */
+.live-row.dim .live-name {
+	color: #6e6e73;
+}
+
+.live-row.dim .live-logo {
+	opacity: 0.45;
+}
+
+.live-row.dim.selected .live-name {
+	color: #aeaeb2;
+}
+
+.focused.dim .live-name {
+	color: #48484a !important;
+}
+
 /* The channel the list is on, while the remote is in the menu. */
 .live-row.selected {
 	color: #ffffff;

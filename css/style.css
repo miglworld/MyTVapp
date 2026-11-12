@@ -213,6 +213,7 @@ button {
    ========================================================================== */
 .sidebar,
 .live-channels,
+.guide-panel,
 .channel-panel,
 .modal-box,
 .toast,
@@ -226,6 +227,7 @@ button {
 
 html:not(.avplay-active) .sidebar,
 html:not(.avplay-active) .live-channels,
+html:not(.avplay-active) .guide-panel,
 html:not(.avplay-active) .channel-panel,
 html:not(.avplay-active) .modal-box,
 html:not(.avplay-active) .toast,
@@ -237,6 +239,7 @@ html:not(.avplay-active) .favorite-btn {
 
 html.avplay-active .sidebar,
 html.avplay-active .live-channels,
+html.avplay-active .guide-panel,
 html.avplay-active .channel-panel,
 html.avplay-active .modal-box,
 html.avplay-active .toast,
@@ -301,6 +304,7 @@ html.avplay-active .favorite-btn {
 }
 
 .sidebar.collapsed[data-root="live"] #navLive,
+.sidebar.collapsed[data-root="guide"] #navGuide,
 .sidebar.collapsed[data-root="favorites"] #navFavorites,
 .sidebar.collapsed[data-root="settings"] #navSettings {
 	color: #ffffff;
@@ -677,6 +681,216 @@ html.avplay-active .favorite-btn {
 
 @keyframes spin {
 	to { transform: rotate(360deg); }
+}
+
+/* ==========================================================================
+   TV Guide: one glass panel over the picture. Channels down the left,
+   time across; every programme is a cell placed and sized by its times
+   (js/main.js: GUIDE_PX_PER_MIN px per minute). No CSS Grid: cells are
+   absolutely positioned inside each row's track.
+   ========================================================================== */
+#screen-guide {
+	z-index: 2;
+}
+
+.guide-panel {
+	position: absolute;
+	top: 28px;
+	right: 28px;
+	bottom: 28px;
+	left: 20px;
+	display: flex;
+	flex-direction: column;
+	padding: 26px 26px 16px;
+	border-radius: 38px;
+}
+
+/* A grid of text needs a calmer surface than the lists do. */
+#screen-guide .guide-panel {
+	background: rgba(18, 18, 22, 0.8);
+	background: linear-gradient(140deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.04) 26%, rgba(255, 255, 255, 0.02) 100%), rgba(18, 18, 22, 0.8);
+}
+
+.guide-head {
+	display: flex;
+	align-items: baseline;
+	flex-shrink: 0;
+	padding: 4px 8px 0;
+}
+
+.guide-title {
+	flex: 1;
+	font-size: 32px;
+	font-weight: 700;
+	color: #f5f5f7;
+}
+
+.guide-date {
+	font-size: 22px;
+	color: #8e8e93;
+}
+
+.guide-info {
+	flex-shrink: 0;
+	height: 168px;
+	padding: 18px 8px 0;
+	overflow: hidden;
+}
+
+.guide-info-title {
+	font-size: 36px;
+	font-weight: 700;
+	color: #ffffff;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.guide-info-meta {
+	margin-top: 6px;
+	font-size: 22px;
+	color: #c7c7cc;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.guide-info-desc {
+	margin-top: 8px;
+	max-height: 58px;
+	font-size: 20px;
+	line-height: 29px;
+	color: #8e8e93;
+	overflow: hidden;
+}
+
+.guide-ruler-row {
+	display: flex;
+	flex-shrink: 0;
+	height: 40px;
+}
+
+.guide-ch-space,
+.guide-ch {
+	width: 300px;
+	flex-shrink: 0;
+}
+
+.guide-ruler {
+	position: relative;
+	flex: 1;
+	overflow: hidden;
+}
+
+.guide-tick {
+	position: absolute;
+	top: 6px;
+	padding-left: 8px;
+	border-left: 1px solid rgba(255, 255, 255, 0.25);
+	font-size: 19px;
+	line-height: 26px;
+	color: #c7c7cc;
+}
+
+.guide-rows {
+	position: relative;
+	flex: 1;
+	min-height: 0;
+	overflow: hidden;
+}
+
+/* 72 + 8 = 80 px per row: GUIDE_ROW_H in js/main.js. */
+.guide-row {
+	display: flex;
+	height: 72px;
+	margin-bottom: 8px;
+}
+
+.guide-ch {
+	display: flex;
+	align-items: center;
+	padding: 0 14px 0 8px;
+	font-size: 21px;
+	color: #c7c7cc;
+}
+
+.guide-row.current .guide-ch {
+	color: #ffffff;
+}
+
+.guide-ch .live-logo {
+	width: 66px;
+	height: 44px;
+	flex-shrink: 0;
+	margin-right: 14px;
+	border-radius: 10px;
+	background: rgba(255, 255, 255, 0.08) center / contain no-repeat;
+	text-align: center;
+	line-height: 44px;
+	font-size: 18px;
+	font-weight: 600;
+	color: #aeaeb2;
+}
+
+.guide-ch-name {
+	min-width: 0;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.guide-track {
+	position: relative;
+	flex: 1;
+	overflow: hidden;
+}
+
+.guide-cell {
+	position: absolute;
+	top: 0;
+	height: 72px;
+	padding: 0 14px;
+	border-radius: 16px;
+	background: rgba(255, 255, 255, 0.07);
+	font-size: 21px;
+	line-height: 72px;
+	color: #c7c7cc;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* On right now. */
+.guide-cell.on {
+	background: rgba(255, 255, 255, 0.15);
+	color: #ffffff;
+}
+
+.guide-cell.empty {
+	background: none;
+	color: #636366;
+}
+
+.guide-cell.focused {
+	transform: none;
+	box-shadow: none;
+}
+
+/* The present. */
+.guide-now {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	width: 2px;
+	background: #ff453a;
+	z-index: 3;
+}
+
+.guide-keys {
+	flex-shrink: 0;
+	padding: 8px 8px 0;
+	font-size: 18px;
+	color: #636366;
 }
 
 /* ==========================================================================

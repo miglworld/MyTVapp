@@ -21,7 +21,7 @@
     // ==========================================================================
     // Config / constants
     // ==========================================================================
-    var APP_VERSION = '0.11.8';
+    var APP_VERSION = '0.11.9';
     var PLAYLISTS_KEY = 'iptv_playlists';
     var ACTIVE_PLAYLISTS_KEY = 'iptv_active_playlist_id';
     var FAVORITES_KEY = 'iptv_favorites';
@@ -86,6 +86,11 @@
     // Live TV screen: height of one channel row (matches css/style.css), and how
     // long the list has to rest on a channel before its preview starts.
     var LIVE_ROW_H = 84;
+    // TV Guide grid: width of one minute, the step the time window moves by,
+    // and the height of one channel row (matches css/style.css).
+    var GUIDE_PX_PER_MIN = 8;
+    var GUIDE_STEP_MIN = 30;
+    var GUIDE_ROW_H = 80;
     var PREVIEW_DELAY_MS = 700;
 
     // Playback error handling limits — a dead stream gives up with a message
@@ -120,6 +125,12 @@
         statusText: '',          // last player status line
         previewTimer: null,
         menuTimer: null,
+        guideList: [],           // TV Guide: the channels that have a guide
+        guideRow: 0,             // channel row the remote is on
+        guideCursor: 0,          // the time the remote is at, in minutes since 1970
+        guideStart: 0,           // first minute shown at the left edge
+        guideRows: 8,            // rows that fit (measured when shown)
+        fullFrom: 'screen-live', // screen full screen was opened from
         guide: null,             // { channelKey: [[start minute, length minutes, title, description?], ...] }
         watched: false,          // the channel that is playing has been shown full screen
         menuMode: 'root',        // side menu shows: 'root' (Live TV, Favorites, Settings) or 'live' (Live TV's own menu)
@@ -409,7 +420,7 @@
             for (var i = 0; i < cats.length; i++) rows.push([cats[i]]);
             return rows;
         }
-        return [[document.getElementById('navLive')], [document.getElementById('navFavorites')], [document.getElementById('navSettings')]];
+        return [[document.getElementById('navLive')], [document.getElementById('navGuide')], [document.getElementById('navFavorites')], [document.getElementById('navSettings')]];
     }
 
     // What a menu row stands for, in the menu that is showing.
@@ -421,13 +432,13 @@
         }
         // Live TV keeps the category that was showing.
         if (row === 0) return state.section.type === 'favorites' ? { type: 'all' } : state.section;
-        if (row === 1) return { type: 'favorites' };
-        return null;       // Settings
+        if (row === 2) return { type: 'favorites' };
+        return null;       // TV Guide, Settings
     }
 
     function rowForSection(section) {
         if (state.menuMode === 'live') return section.type === 'category' ? 2 + section.index : 1;
-        return section.type === 'favorites' ? 1 : 0;
+        return section.type === 'favorites' ? 2 : 0;
     }
 
     function sameSection(a, b) {
@@ -455,31 +466,35 @@
     }
 
     function currentMenuRow() {
-        if (state.menuMode === 'root' && onSettingsScreens()) return 2;
+        if (state.menuMode === 'root' && onSettingsScreens()) return 3;
+        if (state.menuMode === 'root' && activeScreenId() === 'screen-guide') return 1;
         return rowForSection(state.section);
     }
 
     // Moves the remote into the menu, onto the entry of what is showing: Live
     // TV's own menu while its channels are on screen, otherwise the main one.
     function enterMenu() {
-        setMenuMode(!onSettingsScreens() && state.section.type !== 'favorites' ? 'live' : 'root');
+        setMenuMode(activeScreenId() === 'screen-live' && state.section.type !== 'favorites' ? 'live' : 'root');
         Focus.setZone('sideMenu', currentMenuRow(), 0);
     }
 
     // Highlights the entries of what is showing, in both menus.
     function markMenu() {
-        var settings = onSettingsScreens();
+        var guide = activeScreenId() === 'screen-guide';
+        var settings = onSettingsScreens() || guide;   // "not a Live TV section"
         var type = state.section.type;
         document.getElementById('navLive').classList.toggle('active', !settings && type !== 'favorites');
+        document.getElementById('navGuide').classList.toggle('active', guide);
         document.getElementById('navFavorites').classList.toggle('active', !settings && type === 'favorites');
-        document.getElementById('navSettings').classList.toggle('active', settings);
+        document.getElementById('navSettings').classList.toggle('active', settings && !guide);
         document.getElementById('navAll').classList.toggle('active', !settings && type === 'all');
         var cats = document.querySelectorAll('#menuCategories .menu-item');
         for (var i = 0; i < cats.length; i++) {
             cats[i].classList.toggle('active', !settings && type === 'category' && state.section.index === i);
         }
         // For the folded menu, which only has the three icons.
-        document.getElementById('sidebar').setAttribute('data-root', settings ? 'settings' : (type === 'favorites' ? 'favorites' : 'live'));
+        document.getElementById('sidebar').setAttribute('data-root',
+            guide ? 'guide' : (settings ? 'settings' : (type === 'favorites' ? 'favorites' : 'live')));
     }
 
     // Builds Live TV's menu: the categories of the active playlists.
@@ -566,6 +581,7 @@
     }
 
     document.getElementById('navLive').addEventListener('click', openLiveMenu);
+    document.getElementById('navGuide').addEventListener('click', openGuide);
     document.getElementById('navBack').addEventListener('click', closeLiveMenu);
     document.getElementById('navAll').addEventListener('click', function () { openSection({ type: 'all' }); });
     document.getElementById('navFavorites').addEventListener('click', function () { openSection({ type: 'favorites' }); });
@@ -595,8 +611,13 @@
             if (dir !== 'right') return;
             var screen = activeScreenId();
             if (screen === 'screen-settings') { Focus.setZone('playlistList', 0, 0); return; }
-            if (screen !== 'screen-live') return;
             if (state.menuMode === 'root' && Focus.row === 0) { openLiveMenu(); return; }
+            if (state.menuMode === 'root' && Focus.row === 1) { openGuide(); return; }
+            if (screen !== 'screen-live') {
+                // From the guide: Right on Favorites shows them.
+                if (state.menuMode === 'root' && Focus.row === 2) openSection({ type: 'favorites' });
+                return;
+            }
             // A section the pause above has not shown yet: show it now.
             var section = sectionForRow(Focus.row);
             if (!section) return;
@@ -669,10 +690,248 @@
                 cachePut(GUIDE_ENTRY, text);
                 logEvent('guide: ' + n + ' channels');
                 if (!state.fullscreen) renderLiveList();
+                if (activeScreenId() === 'screen-guide') openGuide();
             });
         }).catch(function (err) {
             logEvent('guide not loaded: ' + ((err && err.message) || err));
         });
+    }
+
+    // ==========================================================================
+    // TV Guide screen: the channels that have a guide down the left, time
+    // across. The remote is on one programme: Left/Right move through that
+    // channel's programmes, Up/Down change channel at the same time of day.
+    // Like the Live TV list it is not a Focus matrix; its zone is 'guideGrid'.
+    // ==========================================================================
+    Focus.zones.guideGrid = { getMatrix: function () { return []; } };
+
+    function nowMinute() {
+        return Date.now() / 60000;
+    }
+
+    // The window never starts before the half hour that is running.
+    function guideEarliest() {
+        return Math.floor(nowMinute() / GUIDE_STEP_MIN) * GUIDE_STEP_MIN;
+    }
+
+    function guideProgrammes(ch) {
+        return (state.guide && state.guide[guideKey(ch)]) || [];
+    }
+
+    // Index of the programme that covers `minute`; else the first one after
+    // it; else the last one; -1 when there are none.
+    function guideIndexAt(list, minute) {
+        for (var i = 0; i < list.length; i++) {
+            if (minute < list[i][0] + list[i][1]) return i;
+        }
+        return list.length - 1;
+    }
+
+    // Minutes of time the grid shows.
+    function guideSpan() {
+        var width = document.getElementById('guideRuler').clientWidth || 1400;
+        return Math.max(60, Math.floor(width / GUIDE_PX_PER_MIN));
+    }
+
+    // Moves the time window so that `minute` is inside it.
+    function guideShow(minute) {
+        var span = guideSpan();
+        var start = state.guideStart;
+        while (minute >= start + span - GUIDE_STEP_MIN) start += GUIDE_STEP_MIN;
+        while (minute < start) start -= GUIDE_STEP_MIN;
+        state.guideStart = Math.max(guideEarliest(), start);
+    }
+
+    function openGuide() {
+        if (state.menuTimer) { clearTimeout(state.menuTimer); state.menuTimer = null; }
+        if (state.previewTimer) { clearTimeout(state.previewTimer); state.previewTimer = null; }
+        state.guideList = state.channels.filter(function (ch) { return guideProgrammes(ch).length > 0; });
+        // Start on the channel that is playing, at the present.
+        var row = state.nowPlaying ? indexByUrl(state.guideList, state.nowPlaying.url) : -1;
+        state.guideRow = row === -1 ? 0 : row;
+        state.guideCursor = nowMinute();
+        state.guideStart = guideEarliest();
+        setMenuMode('root');
+        showScreen('screen-guide');
+        markMenu();
+        if (state.guideList.length) Focus.setZone('guideGrid', 0, 0);
+        else Focus.setZone('sideMenu', 1, 0);
+        renderGuide();
+    }
+
+    function guideFocused() {
+        var ch = state.guideList[state.guideRow];
+        if (!ch) return null;
+        var list = guideProgrammes(ch);
+        var index = guideIndexAt(list, Math.max(state.guideCursor, state.guideStart));
+        return { ch: ch, list: list, index: index, prog: index === -1 ? null : list[index] };
+    }
+
+    function renderGuide() {
+        var days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        var months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        var rowsBox = document.getElementById('guideRows');
+        var ruler = document.getElementById('guideRuler');
+        rowsBox.innerHTML = '';
+        ruler.innerHTML = '';
+
+        if (!state.guideList.length) {
+            var hint = document.createElement('div');
+            hint.className = 'empty-hint';
+            hint.textContent = state.guide ? 'The programme guide has nothing for the channels of your playlists.'
+                : 'The programme guide is not loaded yet.';
+            rowsBox.appendChild(hint);
+            document.getElementById('guideInfoTitle').textContent = '';
+            document.getElementById('guideInfoMeta').textContent = '';
+            document.getElementById('guideInfoDesc').textContent = '';
+            document.getElementById('guideInfoLive').hidden = true;
+            document.getElementById('guideDate').textContent = '';
+            return;
+        }
+
+        var start = state.guideStart = Math.max(state.guideStart, guideEarliest());
+        var span = guideSpan();
+        var end = start + span;
+        var now = nowMinute();
+        var hasFocus = Focus.currentZone === 'guideGrid';
+        var focused = guideFocused();
+
+        // Header: the day the left edge is in.
+        var d = new Date(start * 60000);
+        document.getElementById('guideDate').textContent = days[d.getDay()] + ' ' + d.getDate() + ' ' + months[d.getMonth()];
+
+        // Time ruler: one label per step.
+        for (var t = start; t < end; t += GUIDE_STEP_MIN) {
+            var tick = document.createElement('span');
+            tick.className = 'guide-tick';
+            tick.style.left = ((t - start) * GUIDE_PX_PER_MIN) + 'px';
+            tick.textContent = guideTime(t);
+            ruler.appendChild(tick);
+        }
+
+        if (rowsBox.clientHeight) state.guideRows = Math.max(2, Math.floor(rowsBox.clientHeight / GUIDE_ROW_H));
+        var win = listWindow(state.guideRow, state.guideList.length, state.guideRows);
+        var frag = document.createDocumentFragment();
+        for (var r = win.start; r < win.end; r++) {
+            var ch = state.guideList[r];
+            var row = document.createElement('div');
+            row.className = 'guide-row' + (r === state.guideRow ? ' current' : '');
+
+            var cell = document.createElement('div');
+            cell.className = 'guide-ch';
+            var logo = document.createElement('span');
+            logo.className = 'live-logo';
+            if (ch.logo) logo.style.backgroundImage = 'url(' + JSON.stringify(ch.logo) + ')';
+            else logo.textContent = (ch.name || '?').charAt(0).toUpperCase();
+            var name = document.createElement('span');
+            name.className = 'guide-ch-name';
+            name.textContent = ch.name;
+            cell.appendChild(logo);
+            cell.appendChild(name);
+            row.appendChild(cell);
+
+            var track = document.createElement('div');
+            track.className = 'guide-track';
+            var list = guideProgrammes(ch);
+            var any = false;
+            for (var i = guideIndexAt(list, start); i !== -1 && i < list.length; i++) {
+                var from = list[i][0];
+                var to = from + list[i][1];
+                if (from >= end) break;
+                if (to <= start) continue;
+                any = true;
+                var left = (Math.max(from, start) - start) * GUIDE_PX_PER_MIN;
+                var width = (Math.min(to, end) - Math.max(from, start)) * GUIDE_PX_PER_MIN - 4;
+                var prog = document.createElement('div');
+                prog.className = 'guide-cell' + (from <= now && now < to ? ' on' : '') +
+                    (hasFocus && focused && r === state.guideRow && i === focused.index ? ' focused' : '');
+                prog.style.left = left + 'px';
+                prog.style.width = Math.max(6, width) + 'px';
+                // Too narrow for words: a plain block.
+                if (width >= 70) prog.textContent = String(list[i][2]);
+                else prog.style.padding = '0';
+                track.appendChild(prog);
+            }
+            if (!any) {
+                var none = document.createElement('div');
+                none.className = 'guide-cell empty';
+                none.style.left = '0';
+                none.textContent = 'No information';
+                track.appendChild(none);
+            }
+            row.appendChild(track);
+            frag.appendChild(row);
+        }
+        rowsBox.appendChild(frag);
+
+        // The present, as a line through all rows.
+        if (now >= start && now < end) {
+            var line = document.createElement('div');
+            line.className = 'guide-now';
+            line.style.left = (document.querySelector('.guide-ch-space').offsetWidth + (now - start) * GUIDE_PX_PER_MIN) + 'px';
+            rowsBox.appendChild(line);
+        }
+
+        // Details of the programme the remote is on.
+        var p = focused && focused.prog;
+        document.getElementById('guideInfoTitle').textContent = p ? String(p[2]) : (focused ? focused.ch.name : '');
+        document.getElementById('guideInfoLive').hidden = !(p && p[0] <= now && now < p[0] + p[1]);
+        document.getElementById('guideInfoMeta').textContent = p
+            ? guideTime(p[0]) + ' – ' + guideTime(p[0] + p[1]) + ' · ' + focused.ch.name
+            : '';
+        document.getElementById('guideInfoDesc').textContent = p && p[3] ? String(p[3]) : '';
+    }
+
+    function moveGuideRow(delta) {
+        var n = state.guideList.length;
+        state.guideRow = Math.max(0, Math.min(n - 1, state.guideRow + delta));
+        renderGuide();
+    }
+
+    function handleGuideKey(code) {
+        var f = guideFocused();
+        switch (code) {
+            case KEYCODE.UP: moveGuideRow(-1); break;
+            case KEYCODE.DOWN: moveGuideRow(1); break;
+            case KEYCODE.CH_UP: moveGuideRow(-state.guideRows); break;
+            case KEYCODE.CH_DOWN: moveGuideRow(state.guideRows); break;
+            case KEYCODE.RIGHT:
+                if (f && f.index !== -1 && f.index < f.list.length - 1) {
+                    state.guideCursor = f.list[f.index + 1][0];
+                    guideShow(state.guideCursor);
+                    renderGuide();
+                }
+                break;
+            case KEYCODE.LEFT:
+                // The programme before, as long as it reaches into the time
+                // that can be shown; at the start, the menu.
+                var earliest = guideEarliest();
+                if (f && f.index > 0 && f.list[f.index - 1][0] + f.list[f.index - 1][1] > earliest) {
+                    state.guideCursor = Math.max(f.list[f.index - 1][0], earliest);
+                    guideShow(state.guideCursor);
+                    renderGuide();
+                } else {
+                    enterMenu();
+                    renderGuide();
+                }
+                break;
+            case KEYCODE.BACK:
+                enterMenu();
+                renderGuide();
+                break;
+            case KEYCODE.ENTER:
+                if (!f || !f.prog) break;
+                var now = nowMinute();
+                if (f.prog[0] <= now && now < f.prog[0] + f.prog[1]) {
+                    playChannel(f.ch, 'category', state.guideList, 'TV Guide');
+                } else if (f.prog[0] > now) {
+                    showToast('Starts at ' + guideTime(f.prog[0]));
+                } else {
+                    showToast('This programme has ended');
+                }
+                break;
+            case KEYCODE.MEDIA_PLAY_PAUSE: if (state.nowPlaying) togglePlayPause(); break;
+        }
     }
 
     // ==========================================================================
@@ -821,6 +1080,7 @@
         document.getElementById('liveClock').textContent = d.getHours() + ':' + (m < 10 ? '0' : '') + m;
         // Programmes move on with the clock.
         if (state.guide && !state.fullscreen && activeScreenId() === 'screen-live') updateLiveInfo();
+        if (activeScreenId() === 'screen-guide') renderGuide();
     }
     updateClock();
     setInterval(updateClock, 20000);
@@ -1831,6 +2091,7 @@
     function playChannel(ch, context, list, title) {
         if (!state.fullscreen) {
             if (state.previewTimer) { clearTimeout(state.previewTimer); state.previewTimer = null; }
+            state.fullFrom = activeScreenId();
             state.fullscreen = true;
             document.documentElement.classList.add('video-full');
             showScreen('screen-player');
@@ -1841,6 +2102,7 @@
     // Preview window -> full screen, same stream.
     function enterFullscreen() {
         if (state.previewTimer) { clearTimeout(state.previewTimer); state.previewTimer = null; }
+        state.fullFrom = activeScreenId();
         state.fullscreen = true;
         state.watched = true;
         if (state.nowPlaying && state.isPlaying) saveLastChannel(state.nowPlaying, state.zapContext);
@@ -1861,6 +2123,18 @@
         if (state.digitTimer) { clearTimeout(state.digitTimer); state.digitTimer = null; }
         state.digitBuffer = '';
         document.getElementById('numberEntry').hidden = true;
+
+        // Opened from the TV Guide: back to it, on the channel that is playing.
+        if (state.fullFrom === 'screen-guide' && state.guideList.length) {
+            showScreen('screen-guide');
+            var row = state.nowPlaying ? indexByUrl(state.guideList, state.nowPlaying.url) : -1;
+            if (row !== -1) state.guideRow = row;
+            markMenu();
+            placeVideo();
+            Focus.setZone('guideGrid', 0, 0);
+            renderGuide();
+            return;
+        }
 
         showScreen('screen-live');
         // Zapped to a channel outside the section that was showing: show them all.
@@ -2501,6 +2775,8 @@
         if (!document.getElementById('confirmModal').hidden) { hideConfirm(); return; }
         if (activeScreenId() === 'screen-add') { switchToScreen('screen-settings'); return; }
         if (activeScreenId() === 'screen-settings') { switchToScreen('screen-live'); return; }
+        // TV Guide with the remote in the menu: back to Live TV.
+        if (activeScreenId() === 'screen-guide') { switchToScreen('screen-live'); return; }
         // In Live TV's own menu: back to the main menu.
         if (Focus.currentZone === 'sideMenu' && state.menuMode === 'live') { closeLiveMenu(); return; }
         // Live TV with the remote in the main menu (Back in the list goes to the menu first).
@@ -2557,8 +2833,9 @@
             return;
         }
 
-        // The Live TV channel list handles its own keys.
+        // The Live TV channel list and the TV Guide grid handle their own keys.
         if (Focus.currentZone === 'liveList') { handleLiveKey(event.keyCode); return; }
+        if (Focus.currentZone === 'guideGrid') { handleGuideKey(event.keyCode); return; }
 
         switch (event.keyCode) {
             case KEYCODE.UP: Focus.move('up'); break;

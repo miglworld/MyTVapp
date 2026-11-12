@@ -11,6 +11,7 @@ An IPTV player for Samsung Smart TVs (Tizen). It plays live channels from M3U/M3
 - **Multiple playlists, several active at once.** Add any number of M3U/M3U8 playlist URLs in Settings and switch each one on or off. Categories from different playlists stay separate, under a header per playlist.
 - **One-press iptv-org presets.** Settings offers **+ Add IPTV-ORG Portugal** and **+ Add IPTV-ORG All Countries**, fetched live from `iptv-org.github.io`. No playlist is bundled in the package.
 - **Live TV screen.** The channel you rest on plays behind the whole screen. Over it float a side menu (Live TV, Favorites, Settings; Live TV opens its own menu with All channels and every category of your playlists) and a numbered channel list, with the channel's name, group and stream status as a caption. OK hides the panels for full screen, without restarting the stream; Back brings them back.
+- **TV Guide.** A menu entry opens a grid of the channels that have a guide: time across, a line for the present, and the highlighted programme's title, times and description at the top. OK on a programme that is on plays the channel.
 - **Programme guide (now and next).** For channels the guide covers, the list shows what is on, and the caption adds the times, how far along it is, a short description and what follows. See [Programme guide](#programme-guide) for where the data comes from.
 - **Favorites.** Star a channel while watching it. Favorites are kept when a playlist is switched off (they are only hidden) and removed when the playlist is deleted.
 - **Remote-control navigation.** D-pad, OK and Back everywhere, plus channel up/down, number keys, previous channel and play/pause.
@@ -36,6 +37,15 @@ An IPTV player for Samsung Smart TVs (Tizen). It plays live channels from M3U/M3
 | Right (in the list) | Add or remove the favorite |
 | CH+ / CH- | Page through the list |
 | Back (in the main menu) | Exit the app (asks first) |
+
+**TV Guide**
+
+| Key | Action |
+|---|---|
+| Left / Right | Previous / next programme of the channel (the grid moves on in time) |
+| Up / Down, CH+ / CH- | Other channels, at the same time of day |
+| OK | Play the channel, when the programme is on now |
+| Back, Left at the start | Open the menu |
 
 **Full screen**
 

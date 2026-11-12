@@ -10,6 +10,8 @@ MyTvApp's own history starts at v0.1. Newest first. Each entry also names the ve
 - The menu has two levels: Live TV, Favorites and Settings; Live TV opens its own menu (a "‹ Live TV" header, All channels, then the categories) in the same place.
 - The menu folds into a small capsule of icons while the remote is in the channel list or on another screen, and opens again with Left.
 - Lighter glass with a bright rim, larger curves, round menu and list items.
+- Settings, About: the TV's software (Tizen and browser version), when the programme guide was built, the result of the last update check, and the last app error, which is now kept apart from the rolling diagnostics list.
+- Repository: tests for the list window, the guide lookup and channel tags; `docs/decisions.md` records why the app is built the way it is.
 - New Settings screen: five sections on the left (Playlists, Playback, Channels, Updates, About) and the chosen section's rows on the right, with real switches, current values, and a sentence under the rows explaining the one the remote is on. Playlists show their channel count; About holds the version and the diagnostics list.
 - Readability: the faintest greys are lighter and the smallest texts larger, across the app. The focus pill eases in on menus, settings and buttons, and nothing animates when the TV asks for reduced motion.
 - A downloaded update no longer restarts the app by itself: a small notice in the top right corner offers "Update now" or "Later". It waits while a channel is full screen, and "Later" installs the update at the next start.

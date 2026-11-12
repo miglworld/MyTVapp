@@ -1060,7 +1060,12 @@ html.avplay-active .favorite-btn {
 }
 
 .setting-info .setting-value {
+	flex-shrink: 1;
+	min-width: 0;
 	color: #f5f5f7;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 /* Switch: a capsule with a round knob; green and knob to the right when on. */

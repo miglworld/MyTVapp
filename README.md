@@ -5,6 +5,7 @@ An IPTV player for Samsung Smart TVs (Tizen). It plays live channels from M3U/M3
 - **Download:** the `.wgt` attached to the [latest release](https://github.com/miglworld/MyTvApp/releases/latest) (unsigned, see [Installing](#installing))
 - **Changes:** [CHANGELOG.md](CHANGELOG.md)
 - **Security:** [SECURITY.md](SECURITY.md)
+- **Why it is built this way:** [docs/decisions.md](docs/decisions.md)
 
 ## Features
 

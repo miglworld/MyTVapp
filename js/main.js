@@ -14,14 +14,17 @@
     // Under Node (scripts/test.js) there is no page: hand out the functions
     // that do not need one and stop here.
     if (typeof document === 'undefined') {
-        if (typeof module !== 'undefined') module.exports = { parseM3U: parseM3U, versionNewer: versionNewer, isStreamUrl: isStreamUrl, cleanUserAgent: cleanUserAgent };
+        if (typeof module !== 'undefined') module.exports = {
+            parseM3U: parseM3U, versionNewer: versionNewer, isStreamUrl: isStreamUrl, cleanUserAgent: cleanUserAgent,
+            listWindow: listWindow, guideIndexAt: guideIndexAt, isTagged: isTagged, ago: ago
+        };
         return;
     }
 
     // ==========================================================================
     // Config / constants
     // ==========================================================================
-    var APP_VERSION = '0.11.13';
+    var APP_VERSION = '0.11.14';
     var PLAYLISTS_KEY = 'iptv_playlists';
     var ACTIVE_PLAYLISTS_KEY = 'iptv_active_playlist_id';
     var FAVORITES_KEY = 'iptv_favorites';
@@ -71,6 +74,7 @@
     var PLAYLIST_REFRESH_DELAY_MS = 4000;
     var PLAYLIST_MAX_CHARS = 40 * 1000 * 1000;
     var LOG_LINES = 20;
+    var LAST_ERROR_KEY = 'iptv_last_error';
     var OVERLAY_HIDE_MS = 5000;
     var TOAST_MS = 3000;
     var FETCH_TIMEOUT_MS = 15000;
@@ -135,6 +139,8 @@
         guideRows: 8,            // rows that fit (measured when shown)
         settingsSection: 0,      // Settings: the section that is showing
         fullFrom: 'screen-live', // screen full screen was opened from
+        guideBuilt: 0,           // when the guide file was built (ms since 1970)
+        updateCheck: '',         // result of the last update check, for About
         guide: null,             // { channelKey: [[start minute, length minutes, title, description?], ...] }
         watched: false,          // the channel that is playing has been shown full screen
         menuMode: 'root',        // side menu shows: 'root' (Live TV, Favorites, Settings) or 'live' (Live TV's own menu)
@@ -260,7 +266,12 @@
     // Script errors go to the log as well as the on-screen box.
     if (window.MYTVAPP_ERROR && !window.MYTVAPP_ERROR.logged) {
         var showError = window.MYTVAPP_ERROR;
-        window.MYTVAPP_ERROR = function (text) { logEvent('ERROR ' + text); showError(text); };
+        window.MYTVAPP_ERROR = function (text) {
+            logEvent('ERROR ' + text);
+            // Kept on its own as well: the list above is short and moves on.
+            try { localStorage.setItem(LAST_ERROR_KEY, new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC \u00b7 ' + APP_VERSION + ' \u00b7 ' + String(text).slice(0, 200)); } catch (e) { /* non-fatal */ }
+            showError(text);
+        };
         window.MYTVAPP_ERROR.logged = true;
     }
 
@@ -717,6 +728,7 @@
         var data = JSON.parse(text);
         if (!data || typeof data.channels !== 'object' || !data.channels) throw new Error('not a guide file');
         state.guide = data.channels;
+        state.guideBuilt = (Number(data.generated) || 0) * 1000;
         return Object.keys(state.guide).length;
     }
 
@@ -1668,6 +1680,27 @@
         return state.playlists.filter(function (p) { return state.activePlaylistIds.indexOf(p.id) !== -1; });
     }
 
+    // "3 hours ago", for the facts in About.
+    function ago(time) {
+        if (!time) return 'not yet';
+        var minutes = Math.round((Date.now() - time) / 60000);
+        if (minutes < 2) return 'just now';
+        if (minutes < 90) return minutes + ' minutes ago';
+        var hours = Math.round(minutes / 60);
+        return hours < 36 ? hours + ' hours ago' : Math.round(hours / 24) + ' days ago';
+    }
+
+    // The TV's browser, which decides what the app may use: "Tizen 6.0, Chrome 76".
+    function tvSoftware() {
+        var ua = navigator.userAgent || '';
+        var tizen = /Tizen ([\d.]+)/.exec(ua);
+        var chrome = /(?:Chrome|Chromium)\/(\d+)/.exec(ua);
+        var parts = [];
+        if (tizen) parts.push('Tizen ' + tizen[1]);
+        if (chrome) parts.push('Chrome ' + chrome[1]);
+        return parts.join(', ') || 'unknown';
+    }
+
     function appSource() {
         return window.MYTVAPP_SOURCE || (location.protocol.indexOf('http') === 0 ? 'web page / TizenBrew module' : 'installed package');
     }
@@ -1806,6 +1839,13 @@
             rows.push({ kind: 'info', label: 'Version', value: APP_VERSION + (developerMode ? ' (developer mode)' : '') });
             rows.push({ kind: 'info', label: 'Running from', value: appSource() });
             rows.push({ kind: 'info', label: 'Samsung player', value: hasAvplay ? 'Available' : 'Not available' });
+            rows.push({ kind: 'info', label: 'TV software', value: tvSoftware() });
+            rows.push({ kind: 'group', label: 'Status' });
+            rows.push({ kind: 'info', label: 'Programme guide', value: state.guide ? 'built ' + ago(state.guideBuilt) : 'not loaded' });
+            rows.push({ kind: 'info', label: 'Last update check', value: state.updateCheck || 'not yet' });
+            var lastError = null;
+            try { lastError = localStorage.getItem(LAST_ERROR_KEY); } catch (e) { lastError = null; }
+            rows.push({ kind: 'info', label: 'Last app error', value: lastError || 'none' });
             rows.push({ kind: 'group', label: 'Diagnostics' });
             rows.push({ kind: 'log', hint: 'The last things the app did, newest last. Press OK to refresh. Send these lines when something does not work.' });
         }
@@ -2079,6 +2119,7 @@
                 return null;
             }
             if (!wanted) {
+                state.updateCheck = guideTime(nowMinute()) + ' \u00b7 up to date';
                 logEvent('update check (' + channel + '): ' + APP_VERSION + ' is current');
                 if (manual) showToast('MyTvApp ' + APP_VERSION + ' is the current version');
                 return null;
@@ -2118,9 +2159,11 @@
             // start (js/boot.js) must not be held against the new download.
             localStorage.removeItem('mytvapp_update_pending');
             updateReady = version;
+            state.updateCheck = guideTime(nowMinute()) + ' \u00b7 ' + version + ' downloaded';
             logEvent('update ' + version + ' downloaded (' + channel + ')');
             applyUpdateOrAnnounce(version);
         }).catch(function (err) {
+            state.updateCheck = guideTime(nowMinute()) + ' \u00b7 failed';
             logEvent('update check failed (' + channel + '): ' + ((err && err.message) || err));
             if (manual) showToast('Update check failed: ' + ((err && err.message) || err));
         });
